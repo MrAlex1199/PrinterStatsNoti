@@ -3,220 +3,251 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PrinterStatsNoti — ระบบติดตามและแจ้งเตือนเครื่องปริ้น</title>
+  <title>PrinterStatsNoti — Fleet Monitor</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+      font-variant-numeric: tabular-nums;
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
-  <!-- Top Navbar -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-          <i data-lucide="printer" class="w-5 h-5"></i>
+<body class="bg-slate-100/80 text-slate-900 min-h-screen text-sm">
+  <!-- Slim Compact Top Bar -->
+  <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-[1440px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <i data-lucide="printer" class="w-4 h-4"></i>
         </div>
-        <div>
-          <h1 class="text-lg font-bold text-slate-900 leading-tight">PrinterStatsNoti</h1>
-          <p class="text-xs text-slate-500">SNMP Monitor & LINE Alert System</p>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm font-bold text-slate-900 truncate">PrinterStatsNoti</h1>
+            <span id="last-updated" class="hidden md:inline text-[11px] text-slate-400"></span>
+          </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 sm:gap-3">
-        <button id="btn-poll-now" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
-          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">เช็คสถานะทันที</span>
+      <div class="flex items-center gap-1.5">
+        <button id="btn-poll-now" title="เช็คสถานะทันที" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">เช็คสถานะ</span>
         </button>
-        <button id="btn-scan-network" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
-          <i data-lucide="radar" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">สแกนหาเครื่องปริ้น</span>
+        <button id="btn-scan-network" title="สแกนหาเครื่องปริ้นในเครือข่าย" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition">
+          <i data-lucide="radar" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">สแกนเครือข่าย</span>
         </button>
-        <button id="btn-import-csv" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition">
-          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Import Excel/CSV</span>
+        <button id="btn-import-csv" title="นำเข้าจาก Excel/CSV" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-900 text-white transition">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+          <span class="hidden md:inline">Import</span>
         </button>
-        <button id="btn-add-printer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-          <span>เพิ่มเครื่องปริ้น</span>
+        <button id="btn-add-printer" title="เพิ่มเครื่องปริ้น" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">เพิ่มเครื่อง</span>
         </button>
-        <button id="btn-open-settings" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 hover:bg-slate-100 text-slate-700 transition">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">ตั้งค่า LINE</span>
+        <button id="btn-open-settings" title="ตั้งค่า LINE และระบบ" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 hover:bg-slate-100 text-slate-700 transition">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i>
         </button>
-        <button id="btn-shutdown" title="ปิดโปรแกรม" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-rose-200 text-rose-600 hover:bg-rose-50 transition">
-          <i data-lucide="power" class="w-4 h-4"></i>
-          <span class="hidden lg:inline">ปิดโปรแกรม</span>
+        <button id="btn-shutdown" title="ปิดโปรแกรม" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-rose-200 text-rose-600 hover:bg-rose-50 transition">
+          <i data-lucide="power" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-    <!-- Summary Strip -->
-    <section class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">เครื่องปริ้นทั้งหมด</p>
-        <p id="stat-total" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+  <main class="max-w-[1440px] mx-auto px-4 py-4 space-y-4">
+    <!-- Compact KPI Bar + Filter Toolbar -->
+    <section class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <!-- 4 Compact KPI Pills (No "ยอดพิมพ์วันนี้") -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80">
+          <span class="text-[11px] text-slate-500">ทั้งหมด</span>
+          <span id="stat-total" class="text-sm font-bold text-slate-900">0</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="text-[11px] text-emerald-700">พร้อมใช้</span>
+          <span id="stat-online" class="text-sm font-bold text-emerald-700">0</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-200/70">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span class="text-[11px] text-amber-800">แจ้งเตือน/ปัญหา</span>
+          <span id="stat-issues" class="text-sm font-bold text-amber-800">0</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50/70 border border-rose-200/70">
+          <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span class="text-[11px] text-rose-700">สัญญาใกล้หมด</span>
+          <span id="stat-expiring" class="text-sm font-bold text-rose-700">0</span>
+        </div>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">พร้อมใช้งาน (Online)</p>
-        <p id="stat-online" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
-      </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">แจ้งเตือน / มีปัญหา</p>
-        <p id="stat-issues" class="text-2xl font-bold text-amber-600 mt-1">0</p>
-      </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">สัญญาใกล้หมด/หมดแล้ว</p>
-        <p id="stat-expiring" class="text-2xl font-bold text-rose-600 mt-1">0</p>
-      </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm col-span-2 lg:col-span-1">
-        <p class="text-xs font-medium text-slate-500">ยอดพิมพ์วันนี้ (หน้า)</p>
-        <p id="stat-pages-today" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
+
+      <!-- Search, Brand/Vendor Filters & View Switcher -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 sm:w-56 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
+        </div>
+        <select id="filter-brand" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          <option value="">ทุกยี่ห้อ</option>
+        </select>
+        <select id="filter-vendor" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          <option value="">ทุกผู้ให้บริการ</option>
+        </select>
+        <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm">การ์ด</button>
+          <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900">ตาราง</button>
+        </div>
       </div>
     </section>
 
-    <!-- Printers Grid / Table -->
-    <section class="space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <h2 class="text-base font-semibold text-slate-800">สถานะเครื่องปริ้น (Printers)</h2>
-          <span id="last-updated" class="text-xs text-slate-400">กำลังโหลด...</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP, สัญญา..." class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs w-52 focus:ring-2 focus:ring-indigo-500 outline-none bg-white" />
-          <select id="filter-vendor" class="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white">
-            <option value="">ผู้ให้บริการทั้งหมด</option>
-          </select>
-          <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-            <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-600 text-white">การ์ด</button>
-            <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100">ตาราง</button>
-          </div>
-        </div>
-      </div>
-      <div id="printers-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
-      <div id="printers-table-wrap" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
-            <tr>
-              <th class="py-3 px-4 font-semibold">จุดที่ตั้ง / ชื่อ</th>
-              <th class="py-3 px-3 font-semibold">รุ่น / Serial</th>
-              <th class="py-3 px-3 font-semibold">IP / การเชื่อมต่อ</th>
-              <th class="py-3 px-3 font-semibold">สถานะ & หมึก</th>
-              <th class="py-3 px-3 font-semibold">สัญญา / วันหมดอายุ</th>
-              <th class="py-3 px-3 font-semibold">ค่าเช่า / ผู้ให้บริการ</th>
-              <th class="py-3 px-4 font-semibold text-right">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody id="printers-table-body" class="divide-y divide-slate-100"></tbody>
-        </table>
-      </div>
+    <!-- Brand-Grouped Printers Container -->
+    <section id="printers-container" class="space-y-4"></section>
+
+    <!-- Compact Table View -->
+    <section id="printers-table-wrap" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+          <tr>
+            <th class="py-2.5 px-3 font-semibold">ยี่ห้อ</th>
+            <th class="py-2.5 px-3 font-semibold">จุดที่ตั้ง / ชื่อ</th>
+            <th class="py-2.5 px-3 font-semibold">รุ่น / Serial</th>
+            <th class="py-2.5 px-3 font-semibold">IP</th>
+            <th class="py-2.5 px-3 font-semibold">สถานะ & หมึก</th>
+            <th class="py-2.5 px-3 font-semibold">สัญญา</th>
+            <th class="py-2.5 px-3 font-semibold">ผู้ดูแล</th>
+            <th class="py-2.5 px-3 font-semibold text-right">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="printers-table-body" class="divide-y divide-slate-100"></tbody>
+      </table>
     </section>
 
-    <!-- Alert History -->
-    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+    <!-- Collapsible Compact Alert History -->
+    <details class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <summary class="px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 select-none">
         <div class="flex items-center gap-2">
-          <i data-lucide="bell" class="w-4 h-4 text-indigo-600"></i>
-          <h2 class="text-base font-semibold text-slate-800">ประวัติการแจ้งเตือนเข้ามือถือ (LINE Alerts)</h2>
+          <i data-lucide="bell" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span class="text-xs font-semibold text-slate-800">ประวัติการแจ้งเตือน LINE</span>
+          <span id="alert-count-badge" class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">0</span>
         </div>
-        <button id="btn-daily-report" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+        <button id="btn-daily-report" type="button" onclick="event.stopPropagation()" class="text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
           ส่งรายงานประจำวันทันที
         </button>
-      </div>
-      <div id="alerts-list" class="divide-y divide-slate-100 max-h-80 overflow-y-auto"></div>
-    </section>
+      </summary>
+      <div id="alerts-list" class="divide-y divide-slate-100 max-h-60 overflow-y-auto border-t border-slate-100"></div>
+    </details>
   </main>
+
+  <!-- Printer Detail Modal (Click any compact card) -->
+  <div id="detail-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <span id="detail-brand-pill" class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 mb-1"></span>
+          <h3 id="detail-name" class="text-base font-bold text-slate-900"></h3>
+          <p id="detail-sub" class="text-xs text-slate-500 font-mono"></p>
+        </div>
+        <button type="button" onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="detail-body" class="space-y-3 text-xs"></div>
+      <div class="pt-3 border-t border-slate-100 flex justify-between items-center">
+        <button id="detail-delete-btn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50">ลบเครื่องนี้</button>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeDetailModal()" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100">ปิด</button>
+          <button id="detail-edit-btn" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white">แก้ไขข้อมูล</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Add/Edit Printer Modal -->
   <div id="printer-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-3 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <h3 id="printer-modal-title" class="text-lg font-bold text-slate-900">เพิ่มเครื่องปริ้น</h3>
+        <h3 id="printer-modal-title" class="text-base font-bold text-slate-900">เพิ่มเครื่องปริ้น</h3>
         <button type="button" onclick="closePrinterModal()" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-      <form id="printer-form" class="space-y-3">
+      <form id="printer-form" class="space-y-2.5">
         <input type="hidden" id="printer-id" />
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">ชื่อ / จุดที่ตั้งเครื่อง</label>
-            <input id="printer-name" type="text" required placeholder="เช่น อาคารผู้บริหาร 4 ชั้น 2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <input id="printer-name" type="text" required placeholder="เช่น อาคารผู้บริหาร 4 ชั้น 2" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">รูปแบบการเชื่อมต่อ</label>
-            <select id="printer-conn-type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+            <select id="printer-conn-type" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white">
               <option value="network">Network (SNMP)</option>
               <option value="usb">USB (ไม่เช็ค SNMP / เก็บสัญญา)</option>
             </select>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-3 gap-2.5">
           <div class="col-span-2">
             <label class="block text-xs font-medium text-slate-700 mb-1">IP Address (หรือ -USB)</label>
-            <input id="printer-ip" type="text" required placeholder="192.168.0.252" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <input id="printer-ip" type="text" required placeholder="192.168.0.252" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Port</label>
-            <input id="printer-port" type="number" value="161" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <input id="printer-port" type="number" value="161" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Community</label>
-          <input id="printer-community" type="text" value="public" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+          <input id="printer-community" type="text" value="public" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
         </div>
 
-        <details class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+        <details open class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
           <summary class="text-xs font-semibold text-slate-700 cursor-pointer">ข้อมูลสินทรัพย์และสัญญาเช่า (Asset & Contract)</summary>
-          <div class="mt-3 space-y-2.5">
-            <div class="grid grid-cols-2 gap-2.5">
+          <div class="mt-2.5 space-y-2">
+            <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">รุ่นเครื่องพิมพ์</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">รุ่นเครื่องพิมพ์ (ระบุยี่ห้อด้วย)</label>
                 <input id="asset-model" type="text" placeholder="เช่น Minolta BHC251I" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">รหัสเครื่อง (Serial)</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">รหัสเครื่อง (Serial)</label>
                 <input id="asset-serial" type="text" placeholder="ADXM041005929" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2.5">
+            <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">เลขสัญญา</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">เลขสัญญา</label>
                 <input id="asset-contract-no" type="text" placeholder="04A25240015" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">ผู้ให้บริการ / หมายเหตุ</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">ผู้ให้บริการ / หมายเหตุ</label>
                 <input id="asset-vendor" type="text" placeholder="Konica / JoB Ent." class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2.5">
+            <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">วันเริ่มสัญญา (พ.ศ.)</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">วันเริ่มสัญญา (พ.ศ.)</label>
                 <input id="asset-start-date" type="text" placeholder="01/07/2568" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">วันสิ้นสุดสัญญา (พ.ศ.)</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">วันสิ้นสุดสัญญา (พ.ศ.)</label>
                 <input id="asset-end-date" type="text" placeholder="29/06/2573" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2.5">
+            <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">ค่าเช่า/เดือน</label>
-                <input id="asset-cost" type="text" placeholder="2,750.00 หรือ ตามจริง/0.35/ผ" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">ค่าเช่า/เดือน</label>
+                <input id="asset-cost" type="text" placeholder="2,750.00" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-slate-600 mb-1">ระยะเวลาสัญญา</label>
+                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">ระยะเวลาสัญญา</label>
                 <input id="asset-term" type="text" placeholder="เช่าเครื่อง/บริการ 5 ปี" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
               </div>
             </div>
             <div>
-              <label class="block text-[11px] font-medium text-slate-600 mb-1">ประเภท / โควต้า</label>
+              <label class="block text-[11px] font-medium text-slate-600 mb-0.5">ประเภท / โควต้า</label>
               <input id="asset-capabilities" type="text" placeholder="สแกน/ถ่ายเอกสาร/พิมพ์ สี/ขาวดำ A4/A3" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
             </div>
           </div>
@@ -224,20 +255,19 @@
 
         <div class="pt-1 flex items-center gap-2">
           <input id="printer-simulator" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-          <label for="printer-simulator" class="text-sm text-slate-700">เปิดโหมดจำลอง (Simulator Mode สำหรับทดสอบ)</label>
+          <label for="printer-simulator" class="text-xs text-slate-700">เปิดโหมดจำลอง (Simulator Mode)</label>
         </div>
         <div id="simulator-scenario-wrap" class="hidden">
-          <label class="block text-xs font-medium text-slate-700 mb-1">สถานการณ์จำลอง</label>
-          <select id="printer-scenario" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          <select id="printer-scenario" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs">
             <option value="normal">ปกติ (Normal)</option>
             <option value="low_ink">หมึกใกล้หมด (Low Ink)</option>
             <option value="paper_jam">กระดาษติด (Paper Jam)</option>
             <option value="offline">หลุดการเชื่อมต่อ (Offline)</option>
           </select>
         </div>
-        <div class="pt-3 flex justify-end gap-2">
-          <button type="button" onclick="closePrinterModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
-          <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">บันทึก</button>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closePrinterModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white">บันทึก</button>
         </div>
       </form>
     </div>
@@ -245,58 +275,58 @@
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-3 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-slate-900">ตั้งค่าระบบ & LINE Messaging API</h3>
+        <h3 class="text-base font-bold text-slate-900">ตั้งค่าระบบ & LINE Messaging API</h3>
         <button type="button" onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-      <form id="settings-form" class="space-y-3">
+      <form id="settings-form" class="space-y-2.5">
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">LINE Channel Access Token (เว้นว่างถ้าไม่เปลี่ยน)</label>
-          <input id="set-line-token" type="password" placeholder="ใส่ Channel Access Token จาก LINE Developers" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          <p id="token-status-hint" class="text-xs text-slate-400 mt-0.5"></p>
+          <input id="set-line-token" type="password" placeholder="ใส่ Channel Access Token" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
+          <p id="token-status-hint" class="text-[11px] text-slate-400 mt-0.5"></p>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">LINE Channel Secret (สำหรับ Webhook)</label>
-          <input id="set-line-secret" type="password" placeholder="ใส่ Channel Secret" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+          <input id="set-line-secret" type="password" placeholder="ใส่ Channel Secret" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">LINE Target User ID / Group ID</label>
-          <input id="set-line-target" type="text" placeholder="Uxxxxxxxx... หรือ Cxxxxxxxx..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+          <input id="set-line-target" type="text" placeholder="Uxxxxxxxx... หรือ Cxxxxxxxx..." class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-2.5">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">แจ้งเตือนเมื่อหมึกต่ำกว่า (%)</label>
-            <input id="set-low-ink" type="number" min="1" max="90" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">แจ้งเตือนหมึกต่ำกว่า (%)</label>
+            <input id="set-low-ink" type="number" min="1" max="90" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">เช็คสถานะทุก ๆ (วินาที)</label>
-            <input id="set-poll-interval" type="number" min="10" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <input id="set-poll-interval" type="number" min="10" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-3 gap-2.5">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">เวลารายงานประจำวัน (Cron)</label>
-            <input id="set-daily-cron" type="text" placeholder="0 18 * * *" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">รายงานประจำวัน (Cron)</label>
+            <input id="set-daily-cron" type="text" placeholder="0 18 * * *" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Cooldown แจ้งเตือนซ้ำ (นาที)</label>
-            <input id="set-cooldown" type="number" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">Cooldown (นาที)</label>
+            <input id="set-cooldown" type="number" min="1" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">เตือนก่อนหมดสัญญา (วัน)</label>
-            <input id="set-contract-days" type="number" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">เตือนสัญญา (วัน)</label>
+            <input id="set-contract-days" type="number" min="1" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
         </div>
         <div class="pt-3 flex items-center justify-between gap-2 border-t border-slate-100">
-          <button type="button" id="btn-test-line" class="px-3.5 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white">
+          <button type="button" id="btn-test-line" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white">
             ทดสอบส่ง LINE
           </button>
           <div class="flex gap-2">
-            <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
-            <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">บันทึกการตั้งค่า</button>
+            <button type="button" onclick="closeSettingsModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+            <button type="submit" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white">บันทึก</button>
           </div>
         </div>
       </form>
@@ -305,70 +335,64 @@
 
   <!-- Scan Network Modal -->
   <div id="scan-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-3 max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <i data-lucide="radar" class="w-5 h-5 text-emerald-600"></i>
-          <h3 class="text-lg font-bold text-slate-900">สแกนหาเครื่องปริ้นในเครือข่าย (SNMP)</h3>
+          <i data-lucide="radar" class="w-4 h-4 text-emerald-600"></i>
+          <h3 class="text-base font-bold text-slate-900">สแกนหาเครื่องปริ้นในเครือข่าย (SNMP)</h3>
         </div>
         <button type="button" onclick="closeScanModal()" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-      <form id="scan-form" class="space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <form id="scan-form" class="space-y-2.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-slate-700 mb-1">วง IP / CIDR (ใส่หลายวงคั่นด้วย , ได้)</label>
-            <input id="scan-subnets" type="text" required placeholder="192.168.1.0/24" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+            <input id="scan-subnets" type="text" required placeholder="192.168.0.0/24" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Community</label>
-            <input id="scan-community" type="text" value="public" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+            <input id="scan-community" type="text" value="public" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
         </div>
         <div class="flex items-center justify-between">
-          <p class="text-xs text-slate-500">จำกัดไม่เกิน 1,024 IP ต่อครั้ง</p>
-          <button id="btn-start-scan" type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition">
-            เริ่มสแกน
-          </button>
+          <p class="text-[11px] text-slate-500">จำกัดไม่เกิน 1,024 IP ต่อครั้ง</p>
+          <button id="btn-start-scan" type="submit" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white">เริ่มสแกน</button>
         </div>
       </form>
-
-      <div id="scan-status" class="text-sm text-slate-600 hidden"></div>
-      <div id="scan-results" class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-y-auto max-h-64 hidden"></div>
-
-      <div id="scan-actions" class="pt-2 flex justify-end gap-2 hidden">
-        <button type="button" onclick="closeScanModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">ปิด</button>
-        <button id="btn-import-selected" type="button" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">เพิ่มเครื่องที่เลือก</button>
+      <div id="scan-status" class="text-xs text-slate-600 hidden"></div>
+      <div id="scan-results" class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-y-auto max-h-60 hidden"></div>
+      <div id="scan-actions" class="pt-1 flex justify-end gap-2 hidden">
+        <button type="button" onclick="closeScanModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100">ปิด</button>
+        <button id="btn-import-selected" type="button" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white">เพิ่มเครื่องที่เลือก</button>
       </div>
     </div>
   </div>
 
   <!-- Import Excel/CSV Modal -->
   <div id="import-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-5 shadow-xl space-y-3 max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-600"></i>
-          <h3 class="text-lg font-bold text-slate-900">นำเข้าข้อมูลเครื่องปริ้นจาก Excel / CSV</h3>
+          <i data-lucide="file-spreadsheet" class="w-4 h-4 text-indigo-600"></i>
+          <h3 class="text-base font-bold text-slate-900">นำเข้าข้อมูลเครื่องปริ้นจาก Excel / CSV</h3>
         </div>
         <button type="button" onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-500">ก๊อปปี้ตารางจาก Excel/Google Sheets มาวางลงด้านล่าง หรืออัปโหลดไฟล์ .csv (เรียงคอลัมน์: No., จุดที่ตั้ง, รุ่น, รหัสเครื่อง, IP/-USB, เลขสัญญา, ประเภท, ว.ด.ป. สัญญา, สัญญา/ปี, ค่าเช่า/เดือน, หมายเหตุ)</p>
-      <div class="flex items-center gap-3">
-        <input id="import-file-input" type="file" accept=".csv,.tsv,.txt" class="text-xs text-slate-600" />
-      </div>
-      <textarea id="import-raw-text" rows="5" placeholder="วางข้อมูลจาก Excel หรือ CSV ที่นี่..." class="w-full p-3 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+      <p class="text-xs text-slate-500">ก๊อปปี้ตารางจาก Excel/Google Sheets มาวางลงด้านล่าง หรืออัปโหลดไฟล์ .csv</p>
+      <input id="import-file-input" type="file" accept=".csv,.tsv,.txt" class="text-xs text-slate-600" />
+      <textarea id="import-raw-text" rows="5" placeholder="วางข้อมูลจาก Excel หรือ CSV ที่นี่..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
       <div class="flex justify-between items-center">
         <span id="import-preview-count" class="text-xs text-slate-500"></span>
         <div class="flex gap-2">
-          <button id="btn-preview-import" type="button" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700">ตรวจสอบข้อมูล (Preview)</button>
-          <button id="btn-confirm-import" type="button" class="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white hidden">นำเข้าทั้งหมด</button>
+          <button id="btn-preview-import" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700">ตรวจสอบข้อมูล (Preview)</button>
+          <button id="btn-confirm-import" type="button" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white hidden">นำเข้าทั้งหมด</button>
         </div>
       </div>
-      <div id="import-preview-wrap" class="hidden border border-slate-200 rounded-xl overflow-auto max-h-60">
+      <div id="import-preview-wrap" class="hidden border border-slate-200 rounded-xl overflow-auto max-h-56">
         <table class="w-full text-left text-xs border-collapse">
           <thead class="bg-slate-50 border-b border-slate-200 text-slate-600">
             <tr>

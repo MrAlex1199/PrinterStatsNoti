@@ -2,12 +2,12 @@ let currentData = null;
 let currentView = 'cards';
 
 const statusBadgeMap = {
-  online: { label: 'พร้อมใช้งาน', cls: 'bg-emerald-100 text-emerald-700' },
-  printing: { label: 'กำลังพิมพ์', cls: 'bg-blue-100 text-blue-700' },
-  warning: { label: 'แจ้งเตือน', cls: 'bg-amber-100 text-amber-800' },
-  error: { label: 'มีปัญหา', cls: 'bg-rose-100 text-rose-700' },
-  offline: { label: 'ออฟไลน์', cls: 'bg-slate-200 text-slate-700' },
-  usb: { label: 'USB (Manual)', cls: 'bg-sky-100 text-sky-700' },
+  online: { label: 'พร้อมใช้', cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  printing: { label: 'กำลังพิมพ์', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
+  warning: { label: 'แจ้งเตือน', cls: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
+  error: { label: 'มีปัญหา', cls: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500' },
+  offline: { label: 'ออฟไลน์', cls: 'bg-slate-200 text-slate-700', dot: 'bg-slate-400' },
+  usb: { label: 'USB', cls: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' },
 };
 
 const errorFlagLabels = {
@@ -20,6 +20,24 @@ const errorFlagLabels = {
   offline: 'ออฟไลน์',
   serviceRequested: 'ต้องการซ่อมบำรุง',
 };
+
+function detectBrand(p) {
+  const hay = [p.asset?.modelName, p.snapshot?.model, p.name, p.asset?.vendorNote]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (hay.includes('minolta') || hay.includes('konica') || hay.includes('bhc') || hay.includes('bh287')) {
+    return 'Konica Minolta';
+  }
+  if (hay.includes('kyocera') || hay.includes('ecosys')) return 'KYOCERA';
+  if (hay.includes('hp') || hay.includes('laserjet')) return 'HP';
+  if (hay.includes('canon')) return 'Canon';
+  if (hay.includes('brother')) return 'Brother';
+  if (hay.includes('epson')) return 'Epson';
+  if (hay.includes('ricoh')) return 'Ricoh';
+  if (hay.includes('fuji') || hay.includes('xerox')) return 'Fuji Xerox';
+  return 'ยี่ห้ออื่นๆ';
+}
 
 async function fetchStatus() {
   const res = await fetch('/api/status');
@@ -39,63 +57,71 @@ function renderDashboard(data) {
   const expiringCount = printers.filter(
     (p) => typeof p.contractDaysRemaining === 'number' && p.contractDaysRemaining <= alertDays
   ).length;
-  const pagesToday = printers.reduce((sum, p) => sum + (p.dailyStat?.pagesPrintedToday || 0), 0);
 
   document.getElementById('stat-total').textContent = printers.length;
   document.getElementById('stat-online').textContent = onlineCount;
   document.getElementById('stat-issues').textContent = issueCount;
   document.getElementById('stat-expiring').textContent = expiringCount;
-  document.getElementById('stat-pages-today').textContent = pagesToday.toLocaleString();
-  document.getElementById('last-updated').textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+  document.getElementById('last-updated').textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH')}`;
 
-  // Populate vendor filter options
+  // Populate Brand & Vendor filter options
+  const brandSelect = document.getElementById('filter-brand');
+  const prevBrand = brandSelect.value;
+  const brands = [...new Set(printers.map(detectBrand))].sort();
+  brandSelect.innerHTML =
+    `<option value="">ทุกยี่ห้อ</option>` +
+    brands.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  if (brands.includes(prevBrand)) brandSelect.value = prevBrand;
+
   const vendorSelect = document.getElementById('filter-vendor');
   const prevVendor = vendorSelect.value;
   const vendors = [...new Set(printers.map((p) => p.asset?.vendorNote).filter(Boolean))];
-  vendorSelect.innerHTML = `<option value="">ผู้ให้บริการทั้งหมด</option>` +
+  vendorSelect.innerHTML =
+    `<option value="">ทุกผู้ให้บริการ</option>` +
     vendors.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   if (vendors.includes(prevVendor)) vendorSelect.value = prevVendor;
 
   renderPrintersList();
 
-  const alertsEl = document.getElementById('alerts-list');
   const alerts = data.alerts || [];
+  document.getElementById('alert-count-badge').textContent = alerts.length;
+  const alertsEl = document.getElementById('alerts-list');
   if (alerts.length === 0) {
-    alertsEl.innerHTML = `<div class="p-6 text-center text-sm text-slate-400">ยังไม่มีประวัติการแจ้งเตือน</div>`;
+    alertsEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">ยังไม่มีประวัติการแจ้งเตือน</div>`;
   } else {
     alertsEl.innerHTML = alerts
       .map((a) => {
-        const deliveryBadge =
+        const badge =
           a.deliveryStatus === 'sent'
-            ? '<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-700">ส่งสำเร็จ</span>'
+            ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">ส่งแล้ว</span>'
             : a.deliveryStatus === 'skipped'
-              ? '<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">ยังไม่ได้ตั้งค่า LINE</span>'
-              : '<span class="px-2 py-0.5 rounded text-[11px] bg-rose-100 text-rose-700">ส่งไม่สำเร็จ</span>';
+              ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">ยังไม่ตั้งค่า LINE</span>'
+              : '<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 text-rose-700">ล้มเหลว</span>';
         return `
-          <div class="px-5 py-3 flex items-start justify-between gap-4">
-            <div class="space-y-1">
+          <div class="px-4 py-2.5 flex items-start justify-between gap-3 text-xs">
+            <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="text-xs font-semibold text-slate-700">${escapeHtml(a.printerName)}</span>
-                ${deliveryBadge}
+                <span class="font-semibold text-slate-700">${escapeHtml(a.printerName)}</span>
+                ${badge}
               </div>
-              <p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(a.message)}</p>
-              ${a.errorDetail ? `<p class="text-xs text-rose-500">${escapeHtml(a.errorDetail)}</p>` : ''}
+              <p class="text-slate-600 whitespace-pre-line mt-0.5">${escapeHtml(a.message)}</p>
             </div>
-            <span class="text-xs text-slate-400 shrink-0">${new Date(a.createdAt).toLocaleString('th-TH')}</span>
+            <span class="text-[11px] text-slate-400 shrink-0">${new Date(a.createdAt).toLocaleString('th-TH')}</span>
           </div>
         `;
       })
       .join('');
   }
-
   lucide.createIcons();
 }
 
 function getFilteredPrinters() {
   const printers = currentData?.printers || [];
   const q = (document.getElementById('filter-search').value || '').trim().toLowerCase();
+  const brand = document.getElementById('filter-brand').value;
   const vendor = document.getElementById('filter-vendor').value;
   return printers.filter((p) => {
+    if (brand && detectBrand(p) !== brand) return false;
     if (vendor && p.asset?.vendorNote !== vendor) return false;
     if (!q) return true;
     const hay = [
@@ -115,43 +141,163 @@ function getFilteredPrinters() {
   });
 }
 
-function renderContractBadge(p) {
+function renderContractPill(p) {
   const days = p.contractDaysRemaining;
   const alertDays = currentData?.settings?.contractExpiryAlertDays ?? 30;
   if (typeof days !== 'number') return '';
   if (days < 0) {
-    return `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-rose-100 text-rose-700">หมดสัญญา ${Math.abs(days)} วัน</span>`;
+    return `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-700">หมดสัญญา</span>`;
   }
   if (days <= alertDays) {
-    return `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800">ใกล้หมดสัญญา (${days} วัน)</span>`;
+    return `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">เหลือ ${days} วัน</span>`;
   }
-  return `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600">เหลือ ${days} วัน</span>`;
+  return `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">เหลือ ${days} วัน</span>`;
 }
 
 function renderPrintersList() {
   const filtered = getFilteredPrinters();
-  const grid = document.getElementById('printers-grid');
+  const container = document.getElementById('printers-container');
   const tableWrap = document.getElementById('printers-table-wrap');
   const tbody = document.getElementById('printers-table-body');
 
   if (currentView === 'cards') {
-    grid.classList.remove('hidden');
+    container.classList.remove('hidden');
     tableWrap.classList.add('hidden');
     if (filtered.length === 0) {
-      grid.innerHTML = `<div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500">ไม่พบเครื่องปริ้นที่ตรงกับเงื่อนไข หรือกด <b>เพิ่มเครื่องปริ้น / Import Excel</b> เพื่อเริ่มต้น</div>`;
-    } else {
-      grid.innerHTML = filtered.map(renderPrinterCard).join('');
+      container.innerHTML = `<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">ไม่พบเครื่องปริ้นที่ตรงกับเงื่อนไข</div>`;
+      return;
     }
+
+    // Group by Brand
+    const groups = new Map();
+    for (const p of filtered) {
+      const b = detectBrand(p);
+      if (!groups.has(b)) groups.set(b, []);
+      groups.get(b).push(p);
+    }
+
+    container.innerHTML = [...groups.entries()]
+      .map(([brandName, items]) => {
+        const issueInGroup = items.filter(
+          (p) => p.connectionType !== 'usb' && ['warning', 'error', 'offline'].includes(p.snapshot?.status)
+        ).length;
+        return `
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between px-1">
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-4 rounded-full bg-indigo-600"></span>
+                <h2 class="text-xs font-bold uppercase tracking-wide text-slate-700">${escapeHtml(brandName)}</h2>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200/80 text-slate-700">${items.length}</span>
+                ${
+                  issueInGroup > 0
+                    ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">มีแจ้งเตือน ${issueInGroup}</span>`
+                    : ''
+                }
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              ${items.map(renderCompactCard).join('')}
+            </div>
+          </div>
+        `;
+      })
+      .join('');
   } else {
-    grid.classList.add('hidden');
+    container.classList.add('hidden');
     tableWrap.classList.remove('hidden');
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้น</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้น</td></tr>`;
     } else {
       tbody.innerHTML = filtered.map(renderPrinterRow).join('');
     }
   }
   lucide.createIcons();
+}
+
+function renderCompactCard(p) {
+  const snap = p.snapshot;
+  const isUsb = p.connectionType === 'usb';
+  const status = isUsb ? 'usb' : snap?.status || 'offline';
+  const badge = statusBadgeMap[status] || statusBadgeMap.offline;
+  const a = p.asset || {};
+  const threshold = currentData?.settings?.lowInkThresholdPercent ?? 15;
+
+  const modelText = a.modelName || snap?.model || 'ไม่ระบุรุ่น';
+
+  // Ultra-compact inline ink bars (4px height)
+  let inkStripHtml = '';
+  if (isUsb) {
+    inkStripHtml = `<div class="text-[11px] text-sky-600 bg-sky-50/70 rounded-md px-2 py-1">เชื่อมต่อ USB (ติดตามสัญญา/สินทรัพย์)</div>`;
+  } else if (snap?.supplies?.length > 0) {
+    const colsClass = snap.supplies.length >= 4 ? 'grid-cols-4' : snap.supplies.length === 3 ? 'grid-cols-3' : snap.supplies.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
+    inkStripHtml = `
+      <div class="grid ${colsClass} gap-1.5">
+        ${snap.supplies
+          .map((s) => {
+            const pct = s.percent ?? 0;
+            const low = s.percent !== null && s.percent <= threshold;
+            const shortName = s.name.split(' ')[0].slice(0, 5);
+            return `
+              <div>
+                <div class="flex justify-between text-[10px] leading-tight mb-0.5">
+                  <span class="text-slate-500 truncate">${escapeHtml(shortName)}</span>
+                  <span class="font-semibold ${low ? 'text-rose-600' : 'text-slate-700'}">${s.percent !== null ? `${pct}%` : '-'}</span>
+                </div>
+                <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full" style="width:${s.percent !== null ? pct : 0}%; background-color:${s.color || '#334155'}"></div>
+                </div>
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+    `;
+  } else {
+    inkStripHtml = `<div class="text-[11px] text-slate-400">ไม่มีข้อมูลหมึก</div>`;
+  }
+
+  const flagsHtml =
+    snap?.errorFlags?.length > 0
+      ? `<div class="flex flex-wrap gap-1">${snap.errorFlags
+          .map((f) => `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
+          .join('')}</div>`
+      : '';
+
+  return `
+    <div onclick="openDetailModal('${p.id}')" class="group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md p-3.5 transition cursor-pointer flex flex-col justify-between gap-2.5">
+      <div class="space-y-2">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-2 h-2 rounded-full shrink-0 ${badge.dot}"></span>
+            <h3 class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h3>
+          </div>
+          <span class="px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${badge.cls}">${badge.label}</span>
+        </div>
+
+        <p class="text-[11px] text-slate-500 truncate">
+          <span>${escapeHtml(modelText)}</span> • <span class="font-mono">${escapeHtml(p.ip)}</span>
+        </p>
+
+        ${flagsHtml}
+        ${inkStripHtml}
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
+        <div class="flex items-center gap-1.5 min-w-0">
+          ${a.contractNumber ? `<span class="text-slate-500 truncate">#${escapeHtml(a.contractNumber)}</span>` : ''}
+          ${renderContractPill(p)}
+        </div>
+        <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 shrink-0" onclick="event.stopPropagation()">
+          <button onclick="openEditPrinter('${p.id}')" title="แก้ไข" class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-indigo-600">
+            <i data-lucide="pencil" class="w-3 h-3"></i>
+          </button>
+          <button onclick="deletePrinter('${p.id}')" title="ลบ" class="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600">
+            <i data-lucide="trash-2" class="w-3 h-3"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderPrinterRow(p) {
@@ -161,35 +307,27 @@ function renderPrinterRow(p) {
   const badge = statusBadgeMap[status] || statusBadgeMap.offline;
   const a = p.asset || {};
   const minInk = snap?.supplies?.length
-    ? snap.supplies.map((s) => `${s.name.split(' ')[0]}:${s.percent ?? 'N/A'}%`).join(' ')
+    ? snap.supplies.map((s) => `${s.name.split(' ')[0]}:${s.percent ?? '-'}%`).join(' ')
     : isUsb
-      ? 'ไม่รองรับ SNMP'
+      ? 'USB'
       : '-';
 
   return `
-    <tr class="hover:bg-slate-50">
-      <td class="py-3 px-4">
-        <div class="font-semibold text-slate-900">${escapeHtml(p.name)}</div>
-        ${a.capabilities ? `<div class="text-[11px] text-slate-400">${escapeHtml(a.capabilities)}</div>` : ''}
+    <tr class="hover:bg-slate-50 cursor-pointer" onclick="openDetailModal('${p.id}')">
+      <td class="py-2.5 px-3 font-medium text-slate-700">${escapeHtml(detectBrand(p))}</td>
+      <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHtml(p.name)}</td>
+      <td class="py-2.5 px-3">
+        <div>${escapeHtml(a.modelName || snap?.model || '-')}</div>
+        <div class="text-[11px] font-mono text-slate-400">${escapeHtml(a.serialNumber || '')}</div>
       </td>
-      <td class="py-3 px-3">
-        <div class="text-slate-800">${escapeHtml(a.modelName || snap?.model || '-')}</div>
-        ${a.serialNumber ? `<div class="text-[11px] font-mono text-slate-500">${escapeHtml(a.serialNumber)}</div>` : ''}
+      <td class="py-2.5 px-3 font-mono text-slate-700">${escapeHtml(p.ip)}</td>
+      <td class="py-2.5 px-3">
+        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge.cls}">${badge.label}</span>
+        <span class="text-[11px] text-slate-500 ml-1">${escapeHtml(minInk)}</span>
       </td>
-      <td class="py-3 px-3 font-mono text-slate-700">${escapeHtml(p.ip)}</td>
-      <td class="py-3 px-3 space-y-1">
-        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${badge.cls}">${badge.label}</span>
-        <div class="text-[11px] text-slate-500">${escapeHtml(minInk)}</div>
-      </td>
-      <td class="py-3 px-3 space-y-1">
-        <div class="text-slate-700">${escapeHtml(a.contractNumber || '-')} ${a.contractEndDate ? `• หมด ${escapeHtml(a.contractEndDate)}` : ''}</div>
-        <div>${renderContractBadge(p)}</div>
-      </td>
-      <td class="py-3 px-3">
-        <div class="text-slate-800">${escapeHtml(a.monthlyCost || '-')}</div>
-        <div class="text-[11px] text-slate-500">${escapeHtml(a.vendorNote || '-')}</div>
-      </td>
-      <td class="py-3 px-4 text-right space-x-2">
+      <td class="py-2.5 px-3">${escapeHtml(a.contractNumber || '-')} ${renderContractPill(p)}</td>
+      <td class="py-2.5 px-3 text-slate-600">${escapeHtml(a.vendorNote || '-')}</td>
+      <td class="py-2.5 px-3 text-right space-x-2" onclick="event.stopPropagation()">
         <button onclick="openEditPrinter('${p.id}')" class="text-indigo-600 hover:underline">แก้ไข</button>
         <button onclick="deletePrinter('${p.id}')" class="text-rose-500 hover:underline">ลบ</button>
       </td>
@@ -197,59 +335,20 @@ function renderPrinterRow(p) {
   `;
 }
 
-function renderPrinterCard(p) {
+function openDetailModal(id) {
+  const p = currentData?.printers?.find((x) => x.id === id);
+  if (!p) return;
   const snap = p.snapshot;
-  const isUsb = p.connectionType === 'usb';
-  const status = isUsb ? 'usb' : snap?.status || 'offline';
-  const badge = statusBadgeMap[status] || statusBadgeMap.offline;
   const a = p.asset || {};
 
-  const suppliesHtml =
-    snap?.supplies?.length > 0
-      ? snap.supplies
-          .map((s) => {
-            const pct = s.percent ?? 0;
-            const low = s.percent !== null && s.percent <= (currentData?.settings?.lowInkThresholdPercent ?? 15);
-            return `
-              <div>
-                <div class="flex justify-between text-xs mb-1">
-                  <span class="font-medium text-slate-700">${escapeHtml(s.name)}</span>
-                  <span class="font-semibold ${low ? 'text-rose-600' : 'text-slate-700'}">${s.percent !== null ? `${pct}%` : 'N/A'}</span>
-                </div>
-                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all" style="width: ${s.percent !== null ? pct : 0}%; background-color: ${s.color || '#334155'}"></div>
-                </div>
-              </div>
-            `;
-          })
-          .join('')
-      : `<p class="text-xs text-slate-400">ไม่มีข้อมูลระดับหมึก</p>`;
+  document.getElementById('detail-brand-pill').textContent = detectBrand(p);
+  document.getElementById('detail-name').textContent = p.name;
+  document.getElementById('detail-sub').textContent = `${p.ip} • ${a.modelName || snap?.model || 'ไม่ระบุรุ่น'}`;
 
-  const traysHtml =
-    snap?.trays?.length > 0
-      ? snap.trays
-          .map(
-            (t) => `
-            <div class="flex items-center justify-between text-xs text-slate-600">
-              <span>${escapeHtml(t.name)}</span>
-              <span class="font-medium">${t.percent !== null ? `${t.percent}%` : 'OK'}</span>
-            </div>
-          `
-          )
-          .join('')
-      : '';
-
-  const flagsHtml =
-    snap?.errorFlags?.length > 0
-      ? `<div class="flex flex-wrap gap-1.5 pt-1">${snap.errorFlags
-          .map((f) => `<span class="px-2 py-0.5 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
-          .join('')}</div>`
-      : '';
-
-  const simSelector = p.simulator
-    ? `<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-         <span class="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Simulator</span>
-         <select onchange="changeScenario('${p.id}', this.value)" class="text-xs border border-slate-200 rounded px-2 py-1 bg-white">
+  const simHtml = p.simulator
+    ? `<div class="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
+         <span class="font-medium text-indigo-700">โหมดจำลอง (Simulator)</span>
+         <select onchange="changeScenario('${p.id}', this.value)" class="text-xs border border-indigo-200 rounded px-2 py-1 bg-white">
            <option value="normal" ${p.simulatorScenario === 'normal' ? 'selected' : ''}>ปกติ (Normal)</option>
            <option value="low_ink" ${p.simulatorScenario === 'low_ink' ? 'selected' : ''}>หมึกใกล้หมด</option>
            <option value="paper_jam" ${p.simulatorScenario === 'paper_jam' ? 'selected' : ''}>กระดาษติด</option>
@@ -258,49 +357,36 @@ function renderPrinterCard(p) {
        </div>`
     : '';
 
-  const assetHtml =
-    a.serialNumber || a.contractNumber || a.vendorNote || a.monthlyCost || a.contractEndDate
-      ? `<div class="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
-          ${a.modelName ? `<div><b>รุ่น:</b> ${escapeHtml(a.modelName)}</div>` : ''}
-          ${a.serialNumber || a.contractNumber ? `<div>${a.serialNumber ? `<b>SN:</b> <span class="font-mono">${escapeHtml(a.serialNumber)}</span>` : ''} ${a.contractNumber ? `• <b>สัญญา:</b> ${escapeHtml(a.contractNumber)}` : ''}</div>` : ''}
-          ${a.contractEndDate || a.monthlyCost ? `<div class="flex flex-wrap items-center gap-1.5">${a.contractEndDate ? `<span><b>หมดสัญญา:</b> ${escapeHtml(a.contractEndDate)}</span>` : ''} ${renderContractBadge(p)}</div>` : ''}
-          ${a.monthlyCost || a.vendorNote ? `<div>${a.monthlyCost ? `<b>ค่าเช่า:</b> ${escapeHtml(a.monthlyCost)}` : ''} ${a.vendorNote ? `• <b>ผู้ดูแล:</b> ${escapeHtml(a.vendorNote)}` : ''}</div>` : ''}
-        </div>`
-      : '';
-
-  return `
-    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between space-y-4">
-      <div>
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <h3 class="font-bold text-slate-900">${escapeHtml(p.name)}</h3>
-            <p class="text-xs text-slate-500">${escapeHtml(p.ip)} ${snap?.model ? `• ${escapeHtml(snap.model)}` : ''}</p>
-          </div>
-          <span class="px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${badge.cls}">${badge.label}</span>
-        </div>
-
-        ${flagsHtml}
-        ${assetHtml}
-
-        <div class="mt-4 space-y-2.5">
-          ${isUsb ? '<p class="text-xs text-sky-600">เชื่อมต่อแบบ USB (ติดตามข้อมูลสัญญาและสินทรัพย์)</p>' : suppliesHtml}
-        </div>
-
-        ${traysHtml ? `<div class="mt-4 pt-3 border-t border-slate-100 space-y-1">${traysHtml}</div>` : ''}
-      </div>
-
-      <div>
-        <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>พิมพ์สะสม: <b class="text-slate-800">${snap?.pageCount?.toLocaleString() ?? 'N/A'}</b> หน้า</span>
-          <div class="flex items-center gap-2">
-            <button onclick="openEditPrinter('${p.id}')" class="text-slate-500 hover:text-indigo-600">แก้ไข</button>
-            <button onclick="deletePrinter('${p.id}')" class="text-slate-400 hover:text-rose-600">ลบ</button>
-          </div>
-        </div>
-        ${simSelector}
-      </div>
+  document.getElementById('detail-body').innerHTML = `
+    <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+      <div><span class="text-slate-400">Serial:</span> <b class="font-mono text-slate-800">${escapeHtml(a.serialNumber || '-')}</b></div>
+      <div><span class="text-slate-400">เลขสัญญา:</span> <b class="text-slate-800">${escapeHtml(a.contractNumber || '-')}</b></div>
+      <div><span class="text-slate-400">เริ่ม–สิ้นสุด:</span> <b class="text-slate-800">${escapeHtml(a.contractStartDate || '-')} - ${escapeHtml(a.contractEndDate || '-')}</b></div>
+      <div><span class="text-slate-400">ระยะเวลา:</span> <b class="text-slate-800">${escapeHtml(a.contractTerm || '-')}</b></div>
+      <div><span class="text-slate-400">ค่าเช่า/เดือน:</span> <b class="text-slate-800">${escapeHtml(a.monthlyCost || '-')}</b></div>
+      <div><span class="text-slate-400">ผู้ให้บริการ:</span> <b class="text-slate-800">${escapeHtml(a.vendorNote || '-')}</b></div>
+      <div class="col-span-2"><span class="text-slate-400">ประเภท/โควต้า:</span> <b class="text-slate-800">${escapeHtml(a.capabilities || '-')}</b></div>
+      <div class="col-span-2"><span class="text-slate-400">มิเตอร์พิมพ์สะสม:</span> <b class="text-slate-800">${snap?.pageCount?.toLocaleString() ?? 'N/A'} หน้า</b></div>
     </div>
+    ${simHtml}
   `;
+
+  document.getElementById('detail-edit-btn').onclick = () => {
+    closeDetailModal();
+    openEditPrinter(p.id);
+  };
+  document.getElementById('detail-delete-btn').onclick = async () => {
+    closeDetailModal();
+    await deletePrinter(p.id);
+  };
+
+  document.getElementById('detail-modal').classList.remove('hidden');
+  document.getElementById('detail-modal').classList.add('flex');
+}
+
+function closeDetailModal() {
+  document.getElementById('detail-modal').classList.add('hidden');
+  document.getElementById('detail-modal').classList.remove('flex');
 }
 
 function escapeHtml(str) {
@@ -476,6 +562,7 @@ document.getElementById('btn-shutdown').addEventListener('click', async () => {
   }
   document.body.innerHTML = `<div class="min-h-screen flex items-center justify-center bg-slate-50 p-6"><div class="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-sm shadow-sm space-y-2"><h2 class="text-lg font-bold text-slate-800">ปิดโปรแกรมเรียบร้อยแล้ว</h2><p class="text-sm text-slate-500">คุณสามารถปิดแท็บเบราว์เซอร์นี้ได้เลย</p></div></div>`;
 });
+
 document.getElementById('btn-poll-now').addEventListener('click', async () => {
   await fetch('/api/poll', { method: 'POST' });
   await fetchStatus();
@@ -493,8 +580,8 @@ document.getElementById('btn-daily-report').addEventListener('click', async () =
   await fetchStatus();
 });
 
+// Scan Network Modal
 let lastDiscovered = [];
-
 async function openScanModal() {
   document.getElementById('scan-results').classList.add('hidden');
   document.getElementById('scan-actions').classList.add('hidden');
@@ -507,13 +594,9 @@ async function openScanModal() {
     try {
       const res = await fetch('/api/network-interfaces');
       const data = await res.json();
-      if (data.subnets?.length > 0) {
-        input.value = data.subnets.join(', ');
-      } else {
-        input.value = '192.168.1.0/24';
-      }
+      input.value = data.subnets?.length > 0 ? data.subnets.join(', ') : '192.168.0.0/24';
     } catch {
-      input.value = '192.168.1.0/24';
+      input.value = '192.168.0.0/24';
     }
   }
   lucide.createIcons();
@@ -525,7 +608,6 @@ function closeScanModal() {
 }
 
 document.getElementById('btn-scan-network').addEventListener('click', openScanModal);
-
 document.getElementById('scan-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('btn-start-scan');
@@ -557,33 +639,31 @@ document.getElementById('scan-form').addEventListener('submit', async (e) => {
 
     lastDiscovered = data.discovered || [];
     statusEl.textContent = `สแกนทั้งหมด ${data.scannedCount} IP — พบเครื่องปริ้น ${lastDiscovered.length} เครื่อง`;
-
     if (lastDiscovered.length === 0) {
-      resultsEl.innerHTML = `<div class="p-4 text-center text-sm text-slate-400">ไม่พบเครื่องปริ้นที่เปิดใช้งาน SNMP ในวง IP นี้</div>`;
+      resultsEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">ไม่พบเครื่องปริ้นที่เปิดใช้งาน SNMP ในวง IP นี้</div>`;
       resultsEl.classList.remove('hidden');
       return;
     }
 
     resultsEl.innerHTML = lastDiscovered
       .map((item, idx) => `
-        <label class="flex items-center justify-between gap-3 p-3 hover:bg-slate-50 cursor-pointer">
-          <div class="flex items-center gap-3 min-w-0">
+        <label class="flex items-center justify-between gap-3 p-2.5 hover:bg-slate-50 cursor-pointer text-xs">
+          <div class="flex items-center gap-2.5 min-w-0">
             <input type="checkbox" class="scan-checkbox rounded border-slate-300 text-indigo-600" data-index="${idx}" ${item.alreadyAdded ? 'disabled' : 'checked'} />
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(item.ip)}</p>
-              <p class="text-xs text-slate-500 truncate">${escapeHtml(item.model)}</p>
+              <p class="font-semibold text-slate-800 truncate">${escapeHtml(item.ip)}</p>
+              <p class="text-[11px] text-slate-500 truncate">${escapeHtml(item.model)}</p>
             </div>
           </div>
           ${
             item.alreadyAdded
-              ? '<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-500 shrink-0">มีในระบบแล้ว</span>'
-              : '<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-700 shrink-0">พบใหม่</span>'
+              ? '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500 shrink-0">มีแล้ว</span>'
+              : '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 shrink-0">พบใหม่</span>'
           }
         </label>
       `)
       .join('');
     resultsEl.classList.remove('hidden');
-
     if (lastDiscovered.some((d) => !d.alreadyAdded)) {
       actionsEl.classList.remove('hidden');
     }
@@ -602,11 +682,10 @@ document.getElementById('btn-import-selected').addEventListener('click', async (
       ip: item.ip,
       community: item.community,
       port: item.port,
+      asset: { modelName: item.model },
     };
   });
-
   if (printers.length === 0) return;
-
   await fetch('/api/printers/bulk', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -617,19 +696,20 @@ document.getElementById('btn-import-selected').addEventListener('click', async (
   await fetchStatus();
 });
 
-// Search, Vendor Filter, and View Toggle
+// Search, Brand/Vendor Filter, and View Toggle
 document.getElementById('filter-search').addEventListener('input', renderPrintersList);
+document.getElementById('filter-brand').addEventListener('change', renderPrintersList);
 document.getElementById('filter-vendor').addEventListener('change', renderPrintersList);
 document.getElementById('view-cards').addEventListener('click', () => {
   currentView = 'cards';
-  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-600 text-white';
-  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100';
+  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
+  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
   renderPrintersList();
 });
 document.getElementById('view-table').addEventListener('click', () => {
   currentView = 'table';
-  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-600 text-white';
-  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100';
+  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
+  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
   renderPrintersList();
 });
 
@@ -649,7 +729,6 @@ function closeImportModal() {
 }
 
 document.getElementById('btn-import-csv').addEventListener('click', openImportModal);
-
 document.getElementById('import-file-input').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -667,8 +746,7 @@ document.getElementById('btn-preview-import').addEventListener('click', async ()
   const data = await res.json();
   const rows = data.rows || [];
   document.getElementById('import-preview-count').textContent = `พบ ${rows.length} รายการ`;
-  const tbody = document.getElementById('import-preview-body');
-  tbody.innerHTML = rows
+  document.getElementById('import-preview-body').innerHTML = rows
     .map(
       (r) => `
       <tr>
