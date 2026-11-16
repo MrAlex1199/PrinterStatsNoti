@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import path from 'node:path';
 import express, { Express, Request, Response } from 'express';
 import { validateSignature, WebhookEvent } from '@line/bot-sdk';
 import { AlertEngine } from '../alerts/engine.js';
@@ -8,6 +7,7 @@ import { PollingScheduler } from '../scheduler/runner.js';
 import { expandIpTargets, getLocalSubnets, scanTargets } from '../snmp/scanner.js';
 import { JsonStore } from '../storage/store.js';
 import { PrinterConfig } from '../types.js';
+import { resolvePublicDir } from '../utils/runtime.js';
 
 function maskSecret(val: string): string {
   if (!val || val.length <= 8) return val ? '****' : '';
@@ -47,7 +47,7 @@ export function createApp(
   });
 
   app.use(express.json());
-  app.use(express.static(path.resolve(process.cwd(), 'public')));
+  app.use(express.static(resolvePublicDir()));
 
   app.get('/api/status', (_req: Request, res: Response) => {
     const todayStr = new Date().toISOString().slice(0, 10);

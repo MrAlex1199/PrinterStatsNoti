@@ -1,9 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { AlertEngine } from './alerts/engine.js';
 import { LineService } from './line/service.js';
 import { PollingScheduler } from './scheduler/runner.js';
 import { createApp } from './server/app.js';
 import { JsonStore } from './storage/store.js';
+import { isPackagedBinary, openBrowser, resolveEnvPath } from './utils/runtime.js';
+
+dotenv.config({ path: resolveEnvPath() });
 
 async function main() {
   const store = new JsonStore();
@@ -45,8 +48,12 @@ async function main() {
 
   const port = Number(process.env.PORT) || 3000;
   app.listen(port, () => {
-    console.log(`🖨️  PrinterStatsNoti running at http://localhost:${port}`);
+    const url = `http://localhost:${port}`;
+    console.log(`🖨️  PrinterStatsNoti running at ${url}`);
     scheduler.start();
+    if (isPackagedBinary()) {
+      openBrowser(url);
+    }
   });
 }
 

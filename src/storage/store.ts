@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { resolveDataDir } from '../utils/runtime.js';
 import {
   AlertRecord,
   AppSettings,
@@ -22,7 +23,7 @@ export class JsonStore {
     dailyStats: {},
   };
 
-  constructor(filePath: string = path.resolve(process.cwd(), 'data', 'store.json')) {
+  constructor(filePath: string = path.join(resolveDataDir(), 'store.json')) {
     this.filePath = filePath;
   }
 
