@@ -176,7 +176,13 @@ export function createApp(
   });
 
   app.post('/api/scan', async (req: Request, res: Response) => {
-    const body = req.body as { subnets?: string; community?: string; port?: number };
+    const body = req.body as {
+      subnets?: string;
+      community?: string;
+      port?: number;
+      useTcpPorts?: boolean;
+      useMdns?: boolean;
+    };
     const subnetStr = (body.subnets || '').trim();
     if (!subnetStr) {
       res.status(400).json({ error: 'subnets is required (e.g. 192.168.1.0/24)' });
@@ -195,6 +201,8 @@ export function createApp(
     const discovered = await scanTargets(targets, {
       community: body.community?.trim() || 'public',
       port: Number(body.port) || 161,
+      useTcpPorts: body.useTcpPorts ?? true,
+      useMdns: body.useMdns ?? true,
       existingIps,
     });
 

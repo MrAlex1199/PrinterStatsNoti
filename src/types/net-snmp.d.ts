@@ -11,6 +11,7 @@ declare module 'net-snmp' {
   }
 
   const snmp: {
+    Version1: number;
     Version2c: number;
     createSession(target: string, community: string, options?: Record<string, unknown>): Session;
     isVarbindError(varbind: any): boolean;

@@ -629,6 +629,8 @@ document.getElementById('scan-form').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         subnets: document.getElementById('scan-subnets').value,
         community: document.getElementById('scan-community').value,
+        useTcpPorts: document.getElementById('scan-use-tcp').checked,
+        useMdns: document.getElementById('scan-use-mdns').checked,
       }),
     });
     const data = await res.json();
@@ -646,12 +648,23 @@ document.getElementById('scan-form').addEventListener('submit', async (e) => {
     }
 
     resultsEl.innerHTML = lastDiscovered
-      .map((item, idx) => `
+      .map((item, idx) => {
+        const protoBadges = (item.protocols || [])
+          .map((pr) => `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">${escapeHtml(pr)}</span>`)
+          .join('');
+        const snmpWarn = item.snmpEnabled === false
+          ? `<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800">SNMP ปิดอยู่</span>`
+          : '';
+        return `
         <label class="flex items-center justify-between gap-3 p-2.5 hover:bg-slate-50 cursor-pointer text-xs">
           <div class="flex items-center gap-2.5 min-w-0">
             <input type="checkbox" class="scan-checkbox rounded border-slate-300 text-indigo-600" data-index="${idx}" ${item.alreadyAdded ? 'disabled' : 'checked'} />
             <div class="min-w-0">
-              <p class="font-semibold text-slate-800 truncate">${escapeHtml(item.ip)}</p>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <p class="font-semibold text-slate-800">${escapeHtml(item.ip)}</p>
+                ${protoBadges}
+                ${snmpWarn}
+              </div>
               <p class="text-[11px] text-slate-500 truncate">${escapeHtml(item.model)}</p>
             </div>
           </div>
@@ -661,7 +674,8 @@ document.getElementById('scan-form').addEventListener('submit', async (e) => {
               : '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 shrink-0">พบใหม่</span>'
           }
         </label>
-      `)
+      `;
+      })
       .join('');
     resultsEl.classList.remove('hidden');
     if (lastDiscovered.some((d) => !d.alreadyAdded)) {
