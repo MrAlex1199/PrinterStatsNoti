@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as esbuild from 'esbuild';
+import { patchPeSubsystemToGui } from '../dist/utils/pePatch.js';
 
 const rootDir = process.cwd();
 const pkgWorkDir = path.join(rootDir, 'dist-pkg');
@@ -72,6 +73,14 @@ async function main() {
     execFileSync(pkgBin, [pkgWorkDir, '--targets', target, '--output', outPath], {
       stdio: 'inherit',
     });
+
+    if (target.includes('win')) {
+      const exeBuf = await fs.readFile(outPath);
+      if (patchPeSubsystemToGui(exeBuf)) {
+        await fs.writeFile(outPath, exeBuf);
+        console.log('   Patched PE subsystem -> WINDOWS_GUI (no console window)');
+      }
+    }
   }
 
   console.log('5. Generating SHA256SUMS.txt for binary verification...');

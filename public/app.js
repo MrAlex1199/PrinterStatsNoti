@@ -467,6 +467,15 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
 
 document.getElementById('btn-add-printer').addEventListener('click', openPrinterModal);
 document.getElementById('btn-open-settings').addEventListener('click', openSettingsModal);
+document.getElementById('btn-shutdown').addEventListener('click', async () => {
+  if (!confirm('ต้องการปิดโปรแกรม PrinterStatsNoti ใช่หรือไม่?')) return;
+  try {
+    await fetch('/api/shutdown', { method: 'POST' });
+  } catch {
+    // ignore connection close on exit
+  }
+  document.body.innerHTML = `<div class="min-h-screen flex items-center justify-center bg-slate-50 p-6"><div class="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-sm shadow-sm space-y-2"><h2 class="text-lg font-bold text-slate-800">ปิดโปรแกรมเรียบร้อยแล้ว</h2><p class="text-sm text-slate-500">คุณสามารถปิดแท็บเบราว์เซอร์นี้ได้เลย</p></div></div>`;
+});
 document.getElementById('btn-poll-now').addEventListener('click', async () => {
   await fetch('/api/poll', { method: 'POST' });
   await fetchStatus();

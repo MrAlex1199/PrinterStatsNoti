@@ -289,5 +289,11 @@ export function createApp(
     res.status(201).json({ added });
   });
 
+  app.post('/api/shutdown', (_req: Request, res: Response) => {
+    res.json({ ok: true });
+    scheduler.stop();
+    setTimeout(() => process.exit(0), 200);
+  });
+
   return app;
 }
