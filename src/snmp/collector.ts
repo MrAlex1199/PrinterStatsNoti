@@ -1,4 +1,4 @@
-import snmp from 'net-snmp';
+import snmp, { Session } from 'net-snmp';
 import {
   PaperTrayItem,
   PrinterConfig,
@@ -34,7 +34,7 @@ interface SnmpVarbind {
   value: unknown;
 }
 
-function snmpGet(session: snmp.Session, oids: string[]): Promise<SnmpVarbind[]> {
+function snmpGet(session: Session, oids: string[]): Promise<SnmpVarbind[]> {
   return new Promise((resolve, reject) => {
     session.get(oids, (err: Error | null, varbinds?: SnmpVarbind[]) => {
       if (err) return reject(err);
@@ -43,7 +43,7 @@ function snmpGet(session: snmp.Session, oids: string[]): Promise<SnmpVarbind[]> 
   });
 }
 
-function snmpSubtree(session: snmp.Session, oid: string): Promise<SnmpVarbind[]> {
+function snmpSubtree(session: Session, oid: string): Promise<SnmpVarbind[]> {
   return new Promise((resolve, reject) => {
     const items: SnmpVarbind[] = [];
     session.subtree(
