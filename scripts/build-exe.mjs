@@ -79,7 +79,10 @@ async function main() {
   const checksumLines = [];
   for (const file of files.sort()) {
     if (file === 'SHA256SUMS.txt') continue;
-    const buf = await fs.readFile(path.join(releaseDir, file));
+    const fullPath = path.join(releaseDir, file);
+    const stat = await fs.stat(fullPath);
+    if (!stat.isFile()) continue;
+    const buf = await fs.readFile(fullPath);
     const hash = crypto.createHash('sha256').update(buf).digest('hex');
     checksumLines.push(`${hash}  ${file}`);
   }
