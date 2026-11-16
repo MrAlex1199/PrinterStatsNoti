@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-pkg/
+release/
 data/
 .env
 .superpowers/
