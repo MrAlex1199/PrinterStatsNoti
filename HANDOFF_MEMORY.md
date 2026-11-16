@@ -23,10 +23,14 @@
 - **Compact Bento UX/UI** (`public/index.html`, `public/app.js`):
   - Built following `ui-ux-pro-max` guidelines (installed in `.agent/skills/ui-ux-pro-max/`).
   - Compact 4-KPI strip (daily page count stat intentionally removed), grouped by Brand (`Konica Minolta`, `KYOCERA`, etc.), Card/Table view toggle, Search + Brand/Vendor filters, click-card Detail Modal, and accessible micro-animations (`prefers-reduced-motion`).
-- **Standalone `.exe` Packaging** (`scripts/build-exe.mjs`, `src/utils/runtime.ts`, `src/utils/pePatch.ts`):
+- **Standalone `.exe` Packaging** (`scripts/build-exe.mjs`, `src/utils/runtime.ts`, `src/utils/pePatch.ts`, `src/utils/tray.ts`, `src/utils/startup.ts`):
   - Uses `esbuild` + `@yao-pkg/pkg` (Node 22 base, no UPX compression to reduce AV false positives).
   - Patches Windows PE Optional Header `Subsystem` from `WINDOWS_CUI (3)` to `WINDOWS_GUI (2)` in-place so no terminal window appears.
-  - Auto-opens `http://localhost:3000` on launch; single-instance `EADDRINUSE` opens existing browser and exits cleanly.
+  - Launches in **Edge App Mode** (`--app=http://localhost:<port> --window-size=1280,840`) as a dedicated standalone window with no browser tabs/URL bar.
+  - Runs in background on **Windows System Tray** with Zero Native C++ dependencies via .NET NotifyIcon. Closing the window (`X`) keeps the monitor alive; double-click tray reopens app.
+  - Supports **Windows Startup Apps** via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` with `--background` flag for silent boot monitoring.
+  - Automatically bumps patch version in `package.json` on each build and displays version badge in dashboard header.
+  - Single-instance `EADDRINUSE` opens existing app window and exits cleanly.
   - `POST /api/shutdown` calls `server.closeAllConnections()` + `scheduler.stop()` + `process.exit(0)` so zero processes linger.
   - Seeds 3 rich demo printers on first boot (`data/store.json` is stored next to the `.exe`).
 
@@ -37,19 +41,19 @@
 - `src/alerts/engine.ts` — Alert evaluation, cooldown deduplication, contract expiry, daily summary
 - `src/line/service.ts` — LINE Messaging API & Flex Message builder
 - `src/scheduler/runner.ts` — Polling interval & `node-cron` daily report
-- `src/server/app.ts` — Express REST APIs, `/webhook`, `/api/shutdown`
-- `src/utils/` — `contract.ts`, `csvImport.ts`, `runtime.ts`, `pePatch.ts`
+- `src/server/app.ts` — Express REST APIs, `/webhook`, `/api/shutdown`, `/api/system/startup`
+- `src/utils/` — `contract.ts`, `csvImport.ts`, `runtime.ts`, `pePatch.ts`, `tray.ts`, `startup.ts`
 - `public/index.html`, `public/app.js` — Compact Bento Web Dashboard
-- `scripts/build-exe.mjs` — Standalone binary builder (`release/` is gitignored)
+- `scripts/build-exe.mjs` — Standalone binary builder with auto-increment versioning (`release/` is gitignored)
 - `docs/superpowers/` — Design specs & implementation plans
-- `tests/` — Vitest test suite (11 files, 29 tests)
+- `tests/` — Vitest test suite (12 files, 34 tests)
 
 ## 4. Continuing Development on Windows PC
 ```bash
 git clone <YOUR_GITHUB_REPO_URL>
 cd PrinterStatsNoti
 npm install
-npm test          # Run all 29 tests
+npm test          # Run all 34 tests
 npm run dev       # Start dev server with hot reload (http://localhost:3000)
-npm run package:win  # Build release/PrinterStatsNoti-win-x64.exe
+npm run package:win  # Auto-increments version and builds release/PrinterStatsNoti-win-x64.exe
 ```

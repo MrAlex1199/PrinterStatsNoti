@@ -18,12 +18,45 @@ const targetMap = {
 const targets = targetMap[mode] || targetMap.all;
 
 async function main() {
-  console.log('1. Preparing dist-pkg and release directories...');
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Stop-Process -Name "PrinterStatsNoti*" -Force -ErrorAction SilentlyContinue']);
+    } catch {
+      // ignore
+    }
+  }
+
+  console.log('1. Auto-incrementing version in package.json...');
+  const pkgJsonPath = path.join(rootDir, 'package.json');
+  const pkgData = JSON.parse(await fs.readFile(pkgJsonPath, 'utf-8'));
+  const versionParts = (pkgData.version || '1.0.0').split('.').map(Number);
+  if (versionParts.length === 3 && !versionParts.some(isNaN)) {
+    versionParts[2] += 1;
+    pkgData.version = versionParts.join('.');
+  } else {
+    pkgData.version = '1.0.1';
+  }
+  await fs.writeFile(pkgJsonPath, JSON.stringify(pkgData, null, 2) + '\n');
+  console.log(`   📌 Version bumped to v${pkgData.version}`);
+
+  const lockJsonPath = path.join(rootDir, 'package-lock.json');
+  try {
+    const lockData = JSON.parse(await fs.readFile(lockJsonPath, 'utf-8'));
+    lockData.version = pkgData.version;
+    if (lockData.packages && lockData.packages['']) {
+      lockData.packages[''].version = pkgData.version;
+    }
+    await fs.writeFile(lockJsonPath, JSON.stringify(lockData, null, 2) + '\n');
+  } catch {
+    // ignore lockfile bump error
+  }
+
+  console.log('2. Preparing dist-pkg and release directories...');
   await fs.rm(pkgWorkDir, { recursive: true, force: true });
   await fs.mkdir(pkgWorkDir, { recursive: true });
   await fs.mkdir(releaseDir, { recursive: true });
 
-  console.log('2. Bundling TypeScript application with esbuild...');
+  console.log('3. Bundling TypeScript application with esbuild...');
   await esbuild.build({
     entryPoints: [path.join(rootDir, 'src', 'index.ts')],
     bundle: true,
@@ -35,7 +68,7 @@ async function main() {
     minify: false, // Keep readable JS inside bundle to reduce AV heuristic false positives
   });
 
-  console.log('3. Copying public/ web dashboard assets...');
+  console.log('4. Copying public/ web dashboard assets...');
   await fs.cp(path.join(rootDir, 'public'), path.join(pkgWorkDir, 'public'), {
     recursive: true,
   });
@@ -45,7 +78,7 @@ async function main() {
     JSON.stringify(
       {
         name: 'printer-stats-noti',
-        version: '1.0.0',
+        version: pkgData.version,
         description: 'LAN Printer SNMP Monitor and LINE Notification Service',
         author: 'PrinterStatsNoti',
         license: 'MIT',
@@ -59,8 +92,13 @@ async function main() {
     )
   );
 
-  console.log(`4. Packaging standalone binaries for: ${targets.join(', ')}...`);
-  const pkgBin = path.join(rootDir, 'node_modules', '.bin', 'pkg');
+  console.log(`5. Packaging standalone binaries for: ${targets.join(', ')}...`);
+  const pkgBin = path.join(
+    rootDir,
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'pkg.cmd' : 'pkg'
+  );
   for (const target of targets) {
     const outName = target.includes('win')
       ? 'PrinterStatsNoti-win-x64.exe'
@@ -72,6 +110,7 @@ async function main() {
     // Avoid --compress (UPX/GZip) to minimize Antivirus false-positive triggers
     execFileSync(pkgBin, [pkgWorkDir, '--targets', target, '--output', outPath], {
       stdio: 'inherit',
+      shell: process.platform === 'win32',
     });
 
     if (target.includes('win')) {
@@ -83,7 +122,7 @@ async function main() {
     }
   }
 
-  console.log('5. Generating SHA256SUMS.txt for binary verification...');
+  console.log('6. Generating SHA256SUMS.txt for binary verification...');
   const files = await fs.readdir(releaseDir);
   const checksumLines = [];
   for (const file of files.sort()) {

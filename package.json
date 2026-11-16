@@ -1,6 +1,6 @@
 {
   "name": "printer-stats-noti",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "LAN Printer monitoring and LINE mobile notification service",
   "type": "module",
   "main": "dist/index.js",

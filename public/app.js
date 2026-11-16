@@ -1,5 +1,7 @@
 let currentData = null;
 let currentView = 'cards';
+let currentKpiFilter = 'all';
+let currentGroupBy = 'brand';
 let lastRenderedSignature = '';
 
 const statusBadgeMap = {
@@ -40,6 +42,42 @@ function detectBrand(p) {
   return 'ยี่ห้ออื่นๆ';
 }
 
+function setKpiFilter(filter) {
+  if (currentKpiFilter === filter && filter !== 'all') {
+    currentKpiFilter = 'all';
+  } else {
+    currentKpiFilter = filter;
+  }
+  updateKpiPillsUi();
+  renderPrintersList();
+}
+
+function updateKpiPillsUi() {
+  const pills = {
+    all: document.getElementById('kpi-btn-all'),
+    online: document.getElementById('kpi-btn-online'),
+    issues: document.getElementById('kpi-btn-issues'),
+    expiring: document.getElementById('kpi-btn-expiring'),
+  };
+
+  const activeClasses = {
+    all: ['ring-2', 'ring-indigo-500', 'bg-indigo-100/90', 'border-indigo-300'],
+    online: ['ring-2', 'ring-emerald-500', 'bg-emerald-100', 'border-emerald-400'],
+    issues: ['ring-2', 'ring-amber-500', 'bg-amber-100', 'border-amber-400'],
+    expiring: ['ring-2', 'ring-rose-500', 'bg-rose-100', 'border-rose-400'],
+  };
+
+  Object.keys(pills).forEach((k) => {
+    if (pills[k] && activeClasses[k]) {
+      pills[k].classList.remove(...activeClasses[k]);
+    }
+  });
+
+  if (pills[currentKpiFilter] && activeClasses[currentKpiFilter]) {
+    pills[currentKpiFilter].classList.add(...activeClasses[currentKpiFilter]);
+  }
+}
+
 async function fetchStatus() {
   const res = await fetch('/api/status');
   currentData = await res.json();
@@ -64,6 +102,13 @@ function renderDashboard(data) {
   document.getElementById('stat-issues').textContent = issueCount;
   document.getElementById('stat-expiring').textContent = expiringCount;
   document.getElementById('last-updated').textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH')}`;
+
+  const verEl = document.getElementById('app-version');
+  if (verEl && data.version) {
+    verEl.textContent = `v${data.version}`;
+  }
+
+  updateKpiPillsUi();
 
   // Populate Brand & Vendor filter options
   const brandSelect = document.getElementById('filter-brand');
@@ -118,10 +163,24 @@ function renderDashboard(data) {
 
 function getFilteredPrinters() {
   const printers = currentData?.printers || [];
-  const q = (document.getElementById('filter-search').value || '').trim().toLowerCase();
-  const brand = document.getElementById('filter-brand').value;
-  const vendor = document.getElementById('filter-vendor').value;
-  return printers.filter((p) => {
+  const q = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
+  const brand = document.getElementById('filter-brand')?.value;
+  const vendor = document.getElementById('filter-vendor')?.value;
+  const alertDays = currentData?.settings?.contractExpiryAlertDays ?? 30;
+
+  const result = printers.filter((p) => {
+    // KPI Filter
+    if (currentKpiFilter === 'online') {
+      const isOnline = p.connectionType === 'usb' || ['online', 'printing'].includes(p.snapshot?.status);
+      if (!isOnline) return false;
+    } else if (currentKpiFilter === 'issues') {
+      const isIssue = p.connectionType !== 'usb' && ['warning', 'error', 'offline'].includes(p.snapshot?.status);
+      if (!isIssue) return false;
+    } else if (currentKpiFilter === 'expiring') {
+      const isExpiring = typeof p.contractDaysRemaining === 'number' && p.contractDaysRemaining <= alertDays;
+      if (!isExpiring) return false;
+    }
+
     if (brand && detectBrand(p) !== brand) return false;
     if (vendor && p.asset?.vendorNote !== vendor) return false;
     if (!q) return true;
@@ -140,6 +199,18 @@ function getFilteredPrinters() {
       .toLowerCase();
     return hay.includes(q);
   });
+
+  const countBadge = document.getElementById('filter-count-badge');
+  if (countBadge) {
+    if (result.length !== printers.length || currentKpiFilter !== 'all' || q || brand || vendor) {
+      countBadge.textContent = `(แสดง ${result.length}/${printers.length} เครื่อง)`;
+      countBadge.classList.remove('hidden');
+    } else {
+      countBadge.classList.add('hidden');
+    }
+  }
+
+  return result;
 }
 
 function renderContractPill(p) {
@@ -169,50 +240,71 @@ function renderPrintersList() {
       return;
     }
 
-    // Group by Brand
-    const groups = new Map();
-    for (const p of filtered) {
-      const b = detectBrand(p);
-      if (!groups.has(b)) groups.set(b, []);
-      groups.get(b).push(p);
-    }
-
     const sig = filtered.map((p) => p.id).join(',');
     const shouldAnimate = sig !== lastRenderedSignature;
     lastRenderedSignature = sig;
     let cardIdx = 0;
 
-    container.innerHTML = [...groups.entries()]
-      .map(([brandName, items]) => {
-        const issueInGroup = items.filter(
-          (p) => p.connectionType !== 'usb' && ['warning', 'error', 'offline'].includes(p.snapshot?.status)
-        ).length;
-        return `
-          <div class="space-y-2.5">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center gap-2">
-                <span class="w-1.5 h-4 rounded-full bg-indigo-600"></span>
-                <h2 class="text-xs font-bold uppercase tracking-wide text-slate-700">${escapeHtml(brandName)}</h2>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200/80 text-slate-700">${items.length}</span>
-                ${
-                  issueInGroup > 0
-                    ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">มีแจ้งเตือน ${issueInGroup}</span>`
-                    : ''
-                }
+    if (currentGroupBy === 'none') {
+      container.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          ${filtered.map((item) => renderCompactCard(item, shouldAnimate ? cardIdx++ : -1)).join('')}
+        </div>
+      `;
+    } else {
+      const groups = new Map();
+      for (const p of filtered) {
+        let key = '';
+        if (currentGroupBy === 'location') {
+          key = p.asset?.location?.trim() || 'ไม่ระบุจุดที่ตั้ง';
+        } else if (currentGroupBy === 'status') {
+          if (p.connectionType === 'usb') {
+            key = 'เครื่องพิมพ์ USB';
+          } else {
+            const st = p.snapshot?.status;
+            if (st === 'warning' || st === 'error') key = 'มีปัญหา / เตือนหมึก';
+            else if (st === 'offline') key = 'ออฟไลน์';
+            else key = 'พร้อมใช้งาน (ปกติ)';
+          }
+        } else {
+          key = detectBrand(p);
+        }
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      }
+
+      container.innerHTML = [...groups.entries()]
+        .map(([groupName, items]) => {
+          const issueInGroup = items.filter(
+            (p) => p.connectionType !== 'usb' && ['warning', 'error', 'offline'].includes(p.snapshot?.status)
+          ).length;
+          return `
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-2">
+                  <span class="w-1.5 h-4 rounded-full bg-indigo-600"></span>
+                  <h2 class="text-xs font-bold uppercase tracking-wide text-slate-700">${escapeHtml(groupName)}</h2>
+                  <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200/80 text-slate-700">${items.length}</span>
+                  ${
+                    issueInGroup > 0
+                      ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">มีแจ้งเตือน ${issueInGroup}</span>`
+                      : ''
+                  }
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                ${items.map((item) => renderCompactCard(item, shouldAnimate ? cardIdx++ : -1)).join('')}
               </div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              ${items.map((item) => renderCompactCard(item, shouldAnimate ? cardIdx++ : -1)).join('')}
-            </div>
-          </div>
-        `;
-      })
-      .join('');
+          `;
+        })
+        .join('');
+    }
   } else {
     container.classList.add('hidden');
     tableWrap.classList.remove('hidden');
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้น</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้นที่ตรงกับเงื่อนไข</td></tr>`;
     } else {
       tbody.innerHTML = filtered.map(renderPrinterRow).join('');
     }
@@ -312,22 +404,65 @@ function renderCompactCard(p, animIndex = -1) {
   `;
 }
 
+function renderTableSupplies(p) {
+  const isUsb = p.connectionType === 'usb';
+  if (isUsb) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>USB (ติดตามสัญญา)
+    </span>`;
+  }
+  const snap = p.snapshot;
+  if (!snap || !snap.supplies || snap.supplies.length === 0) {
+    return `<span class="text-[11px] text-slate-400 italic">ไม่มีข้อมูลหมึก</span>`;
+  }
+  const threshold = currentData?.settings?.lowInkThresholdPercent ?? 15;
+  const cols = snap.supplies.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+  return `
+    <div class="grid ${cols} gap-x-3 gap-y-1.5 min-w-[210px] max-w-[270px]">
+      ${snap.supplies
+        .map((s) => {
+          const pct = s.percent ?? 0;
+          const isLow = s.percent !== null && s.percent <= threshold;
+          const color = s.color || '#334155';
+          const shortName = s.name.replace(/toner|cartridge|ink/gi, '').trim() || s.name;
+          return `
+            <div class="flex items-center gap-1.5 text-[11px] py-0.5">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300 shadow-xs" style="background-color: ${color}"></span>
+              <span class="text-slate-600 truncate max-w-[65px] font-medium" title="${escapeHtml(s.name)}">${escapeHtml(shortName)}</span>
+              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-[32px]">
+                <div class="h-full rounded-full ${isLow ? 'bg-rose-500' : ''}" style="width: ${s.percent !== null ? Math.min(Math.max(pct, 0), 100) : 0}%; ${!isLow ? `background-color: ${color};` : ''}"></div>
+              </div>
+              <span class="font-mono text-[10px] shrink-0 ${isLow ? 'text-rose-600 font-bold' : 'text-slate-700 font-semibold'}">
+                ${s.percent !== null ? `${pct}%` : '-'}
+              </span>
+            </div>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
 function renderPrinterRow(p) {
   const snap = p.snapshot;
   const isUsb = p.connectionType === 'usb';
   const status = isUsb ? 'usb' : snap?.status || 'offline';
   const badge = statusBadgeMap[status] || statusBadgeMap.offline;
   const a = p.asset || {};
-  const minInk = snap?.supplies?.length
-    ? snap.supplies.map((s) => `${s.name.split(' ')[0]}:${s.percent ?? '-'}%`).join(' ')
-    : isUsb
-      ? 'USB'
-      : '-';
+  const flagsHtml =
+    snap?.errorFlags?.length > 0
+      ? `<div class="mt-1 flex flex-wrap gap-1">${snap.errorFlags
+          .map((f) => `<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
+          .join('')}</div>`
+      : '';
 
   return `
     <tr class="hover:bg-slate-50 cursor-pointer" onclick="openDetailModal('${p.id}')">
       <td class="py-2.5 px-3 font-medium text-slate-700">${escapeHtml(detectBrand(p))}</td>
-      <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHtml(p.name)}</td>
+      <td class="py-2.5 px-3">
+        <div class="font-semibold text-slate-900">${escapeHtml(p.name)}</div>
+        ${a.location ? `<div class="text-[11px] text-slate-500">${escapeHtml(a.location)}</div>` : ''}
+      </td>
       <td class="py-2.5 px-3">
         <div>${escapeHtml(a.modelName || snap?.model || '-')}</div>
         <div class="text-[11px] font-mono text-slate-400">${escapeHtml(a.serialNumber || '')}</div>
@@ -335,13 +470,16 @@ function renderPrinterRow(p) {
       <td class="py-2.5 px-3 font-mono text-slate-700">${escapeHtml(p.ip)}</td>
       <td class="py-2.5 px-3">
         <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge.cls}">${badge.label}</span>
-        <span class="text-[11px] text-slate-500 ml-1">${escapeHtml(minInk)}</span>
+        ${flagsHtml}
+      </td>
+      <td class="py-2.5 px-3">
+        ${renderTableSupplies(p)}
       </td>
       <td class="py-2.5 px-3">${escapeHtml(a.contractNumber || '-')} ${renderContractPill(p)}</td>
       <td class="py-2.5 px-3 text-slate-600">${escapeHtml(a.vendorNote || '-')}</td>
       <td class="py-2.5 px-3 text-right space-x-2" onclick="event.stopPropagation()">
-        <button onclick="openEditPrinter('${p.id}')" class="text-indigo-600 hover:underline">แก้ไข</button>
-        <button onclick="deletePrinter('${p.id}')" class="text-rose-500 hover:underline">ลบ</button>
+        <button onclick="openEditPrinter('${p.id}')" class="text-indigo-600 hover:underline font-medium">แก้ไข</button>
+        <button onclick="deletePrinter('${p.id}')" class="text-rose-500 hover:underline font-medium">ลบ</button>
       </td>
     </tr>
   `;
@@ -356,6 +494,37 @@ function openDetailModal(id) {
   document.getElementById('detail-brand-pill').textContent = detectBrand(p);
   document.getElementById('detail-name').textContent = p.name;
   document.getElementById('detail-sub').textContent = `${p.ip} • ${a.modelName || snap?.model || 'ไม่ระบุรุ่น'}`;
+
+  const suppliesHtml = snap?.supplies?.length
+    ? `
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2">
+        <div class="text-[11px] font-semibold text-slate-700">ระดับหมึก / วัสดุสิ้นเปลือง</div>
+        <div class="grid grid-cols-2 gap-2">
+          ${snap.supplies
+            .map((s) => {
+              const pct = s.percent ?? 0;
+              const isLow = s.percent !== null && s.percent <= (currentData?.settings?.lowInkThresholdPercent ?? 15);
+              const color = s.color || '#334155';
+              return `
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="flex items-center gap-1.5 text-slate-600">
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300" style="background-color:${color}"></span>
+                      <span class="truncate max-w-[85px] font-medium" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
+                    </span>
+                    <span class="font-semibold ${isLow ? 'text-rose-600 font-bold' : 'text-slate-700'}">${s.percent !== null ? `${pct}%` : '-'}</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full ${isLow ? 'bg-rose-500' : ''}" style="width:${s.percent !== null ? pct : 0}%; ${!isLow ? `background-color:${color};` : ''}"></div>
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>
+      </div>
+    `
+    : '';
 
   const simHtml = p.simulator
     ? `<div class="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
@@ -377,9 +546,11 @@ function openDetailModal(id) {
       <div><span class="text-slate-400">ระยะเวลา:</span> <b class="text-slate-800">${escapeHtml(a.contractTerm || '-')}</b></div>
       <div><span class="text-slate-400">ค่าเช่า/เดือน:</span> <b class="text-slate-800">${escapeHtml(a.monthlyCost || '-')}</b></div>
       <div><span class="text-slate-400">ผู้ให้บริการ:</span> <b class="text-slate-800">${escapeHtml(a.vendorNote || '-')}</b></div>
+      <div class="col-span-2"><span class="text-slate-400">จุดที่ตั้ง:</span> <b class="text-slate-800">${escapeHtml(a.location || '-')}</b></div>
       <div class="col-span-2"><span class="text-slate-400">ประเภท/โควต้า:</span> <b class="text-slate-800">${escapeHtml(a.capabilities || '-')}</b></div>
       <div class="col-span-2"><span class="text-slate-400">มิเตอร์พิมพ์สะสม:</span> <b class="text-slate-800">${snap?.pageCount?.toLocaleString() ?? 'N/A'} หน้า</b></div>
     </div>
+    ${suppliesHtml}
     ${simHtml}
   `;
 
@@ -480,7 +651,7 @@ function closePrinterModal() {
   document.getElementById('printer-modal').classList.remove('flex');
 }
 
-function openSettingsModal() {
+async function openSettingsModal() {
   const s = currentData?.settings || {};
   document.getElementById('set-line-token').value = '';
   document.getElementById('set-line-secret').value = '';
@@ -493,6 +664,27 @@ function openSettingsModal() {
   document.getElementById('token-status-hint').textContent = s.hasLineToken
     ? `ตั้งค่า Token แล้ว (${s.lineChannelAccessTokenMasked})`
     : 'ยังไม่ได้ตั้งค่า Channel Access Token';
+
+  // Load Windows Startup status
+  try {
+    const res = await fetch('/api/system/startup');
+    const startup = await res.json();
+    const wrap = document.getElementById('startup-setting-wrap');
+    if (wrap) {
+      if (startup.supported) {
+        wrap.classList.remove('hidden');
+        document.getElementById('set-startup').checked = Boolean(startup.enabled);
+        document.getElementById('startup-status-hint').textContent = startup.enabled
+          ? `เปิดใช้งานแล้ว (${startup.command || 'Windows Startup'})`
+          : 'ปิดอยู่ (ไม่เริ่มทำงานอัตโนมัติเมื่อเปิดเครื่อง)';
+      } else {
+        wrap.classList.add('hidden');
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   document.getElementById('settings-modal').classList.remove('hidden');
   document.getElementById('settings-modal').classList.add('flex');
 }
@@ -559,6 +751,20 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+
+  const startupCheckbox = document.getElementById('set-startup');
+  if (startupCheckbox) {
+    try {
+      await fetch('/api/system/startup', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: startupCheckbox.checked }),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   closeSettingsModal();
   await fetchStatus();
 });
@@ -731,10 +937,14 @@ document.getElementById('btn-import-selected').addEventListener('click', async (
   await fetchStatus();
 });
 
-// Search, Brand/Vendor Filter, and View Toggle
+// Search, Brand/Vendor Filter, Group By, and View Toggle
 document.getElementById('filter-search').addEventListener('input', renderPrintersList);
 document.getElementById('filter-brand').addEventListener('change', renderPrintersList);
 document.getElementById('filter-vendor').addEventListener('change', renderPrintersList);
+document.getElementById('filter-groupby')?.addEventListener('change', (e) => {
+  currentGroupBy = e.target.value;
+  renderPrintersList();
+});
 document.getElementById('view-cards').addEventListener('click', () => {
   currentView = 'cards';
   document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';

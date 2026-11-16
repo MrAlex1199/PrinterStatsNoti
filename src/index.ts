@@ -4,7 +4,14 @@ import { LineService } from './line/service.js';
 import { PollingScheduler } from './scheduler/runner.js';
 import { createApp } from './server/app.js';
 import { JsonStore } from './storage/store.js';
-import { isPackagedBinary, openBrowser, resolveEnvPath } from './utils/runtime.js';
+import {
+  isBackgroundLaunch,
+  isPackagedBinary,
+  openAppWindow,
+  openBrowser,
+  resolveEnvPath,
+} from './utils/runtime.js';
+import { startSystemTray, SystemTrayController } from './utils/tray.js';
 
 dotenv.config({ path: resolveEnvPath() });
 
@@ -110,12 +117,18 @@ async function main() {
   const alertEngine = new AlertEngine(store, lineService);
   const scheduler = new PollingScheduler(store, alertEngine);
 
+  const background = isBackgroundLaunch(process.argv);
   let server: ReturnType<typeof app.listen> | null = null;
+  let trayController: SystemTrayController | null = null;
   let isShuttingDown = false;
 
   const shutdownGracefully = () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
+    if (trayController) {
+      trayController.stop();
+      trayController = null;
+    }
     scheduler.stop();
     const forceTimer = setTimeout(() => process.exit(0), 500);
     forceTimer.unref();
@@ -139,8 +152,27 @@ async function main() {
   server = app.listen(port, () => {
     console.log(`🖨️  PrinterStatsNoti running at ${url}`);
     scheduler.start();
-    if (isPackagedBinary()) {
-      openBrowser(url);
+
+    // Start Windows system tray
+    trayController = startSystemTray({
+      url,
+      port,
+      onOpen: () => openAppWindow(url),
+      onPoll: () => {
+        scheduler.pollAllNow().catch((err: unknown) => console.error('Tray poll error:', err));
+      },
+      onExit: () => shutdownGracefully(),
+    });
+
+    // Only open app window if not launched in background mode
+    if (!background) {
+      if (isPackagedBinary() || process.platform === 'win32') {
+        openAppWindow(url);
+      } else {
+        openBrowser(url);
+      }
+    } else {
+      console.log('🔕 Running in background mode (System Tray active).');
     }
   });
 
@@ -150,7 +182,9 @@ async function main() {
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       // Single-instance native behavior: open existing dashboard and exit cleanly
-      openBrowser(url);
+      if (!background) {
+        openAppWindow(url);
+      }
       setTimeout(() => process.exit(0), 300);
       return;
     }

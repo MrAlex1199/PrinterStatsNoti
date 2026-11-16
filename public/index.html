@@ -73,6 +73,7 @@
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h1 class="text-sm font-bold text-slate-900 truncate">PrinterStatsNoti</h1>
+            <span id="app-version" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200/80 font-medium"></span>
             <span id="last-updated" class="hidden md:inline text-[11px] text-slate-400"></span>
           </div>
         </div>
@@ -108,35 +109,42 @@
   <main class="max-w-[1440px] mx-auto px-4 py-4 space-y-4">
     <!-- Compact KPI Bar + Filter Toolbar -->
     <section class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-      <!-- 4 Compact KPI Pills (No "ยอดพิมพ์วันนี้") -->
+      <!-- 4 Compact KPI Buttons (Click to filter) -->
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80">
-          <span class="text-[11px] text-slate-500">ทั้งหมด</span>
+        <button id="kpi-btn-all" type="button" onclick="setKpiFilter('all')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:bg-slate-100 cursor-pointer transition select-none">
+          <span class="text-[11px] text-slate-500 font-medium">ทั้งหมด</span>
           <span id="stat-total" class="text-sm font-bold text-slate-900">0</span>
-        </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70">
+        </button>
+        <button id="kpi-btn-online" type="button" onclick="setKpiFilter('online')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 hover:bg-emerald-100/70 cursor-pointer transition select-none">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span class="text-[11px] text-emerald-700">พร้อมใช้</span>
+          <span class="text-[11px] text-emerald-700 font-medium">พร้อมใช้</span>
           <span id="stat-online" class="text-sm font-bold text-emerald-700">0</span>
-        </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-200/70">
+        </button>
+        <button id="kpi-btn-issues" type="button" onclick="setKpiFilter('issues')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-200/70 hover:bg-amber-100/70 cursor-pointer transition select-none">
           <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-          <span class="text-[11px] text-amber-800">แจ้งเตือน/ปัญหา</span>
+          <span class="text-[11px] text-amber-800 font-medium">แจ้งเตือน/ปัญหา</span>
           <span id="stat-issues" class="text-sm font-bold text-amber-800">0</span>
-        </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50/70 border border-rose-200/70">
+        </button>
+        <button id="kpi-btn-expiring" type="button" onclick="setKpiFilter('expiring')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50/70 border border-rose-200/70 hover:bg-rose-100/70 cursor-pointer transition select-none">
           <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-rose-600"></i>
-          <span class="text-[11px] text-rose-700">สัญญาใกล้หมด</span>
+          <span class="text-[11px] text-rose-700 font-medium">สัญญาใกล้หมด</span>
           <span id="stat-expiring" class="text-sm font-bold text-rose-700">0</span>
-        </div>
+        </button>
+        <span id="filter-count-badge" class="hidden sm:inline text-xs text-slate-500 ml-1"></span>
       </div>
 
-      <!-- Search, Brand/Vendor Filters & View Switcher -->
+      <!-- Search, Brand/Vendor Filters, GroupBy & View Switcher -->
       <div class="flex flex-wrap items-center gap-2">
         <div class="relative">
           <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
-          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-48 sm:w-56 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
+          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-44 sm:w-52 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
         </div>
+        <select id="filter-groupby" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-medium">
+          <option value="brand">จัดกลุ่ม: ยี่ห้อ</option>
+          <option value="location">จัดกลุ่ม: จุดที่ตั้ง</option>
+          <option value="status">จัดกลุ่ม: สถานะ</option>
+          <option value="none">ไม่จัดกลุ่ม (แสดงรวม)</option>
+        </select>
         <select id="filter-brand" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
           <option value="">ทุกยี่ห้อ</option>
         </select>
@@ -150,7 +158,7 @@
       </div>
     </section>
 
-    <!-- Brand-Grouped Printers Container -->
+    <!-- Grouped / Filtered Printers Container -->
     <section id="printers-container" class="space-y-4"></section>
 
     <!-- Compact Table View -->
@@ -162,7 +170,8 @@
             <th class="py-2.5 px-3 font-semibold">จุดที่ตั้ง / ชื่อ</th>
             <th class="py-2.5 px-3 font-semibold">รุ่น / Serial</th>
             <th class="py-2.5 px-3 font-semibold">IP</th>
-            <th class="py-2.5 px-3 font-semibold">สถานะ & หมึก</th>
+            <th class="py-2.5 px-3 font-semibold">สถานะ</th>
+            <th class="py-2.5 px-3 font-semibold min-w-[210px]">ระดับหมึก</th>
             <th class="py-2.5 px-3 font-semibold">สัญญา</th>
             <th class="py-2.5 px-3 font-semibold">ผู้ดูแล</th>
             <th class="py-2.5 px-3 font-semibold text-right">จัดการ</th>
@@ -367,6 +376,22 @@
             <label class="block text-xs font-medium text-slate-700 mb-1">เตือนสัญญา (วัน)</label>
             <input id="set-contract-days" type="number" min="1" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
           </div>
+        </div>
+        <div id="startup-setting-wrap" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="power" class="w-4 h-4 text-indigo-600"></i>
+              <div>
+                <span class="text-xs font-semibold text-slate-800">เปิดโปรแกรมอัตโนมัติเมื่อเปิดเครื่อง (Windows Startup)</span>
+                <p class="text-[11px] text-slate-500">รันเบื้องหลังใน System Tray อัตโนมัติเมื่อเปิดคอมพิวเตอร์ เพื่อคอยส่งแจ้งเตือน LINE</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+              <input id="set-startup" type="checkbox" class="sr-only peer" />
+              <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+          <p id="startup-status-hint" class="text-[10px] text-slate-400 font-mono"></p>
         </div>
         <div class="pt-3 flex items-center justify-between gap-2 border-t border-slate-100">
           <button type="button" id="btn-test-line" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white">

@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import express, { Express, Request, Response } from 'express';
 import { validateSignature, WebhookEvent } from '@line/bot-sdk';
 import { AlertEngine } from '../alerts/engine.js';
@@ -9,11 +11,30 @@ import { JsonStore } from '../storage/store.js';
 import { PrinterConfig } from '../types.js';
 import { getContractDaysRemaining } from '../utils/contract.js';
 import { parsePrinterSpreadsheetText } from '../utils/csvImport.js';
-import { resolvePublicDir } from '../utils/runtime.js';
+import { openAppWindow, resolvePublicDir } from '../utils/runtime.js';
+import { getStartupStatus, setStartupEnabled } from '../utils/startup.js';
 
 function maskSecret(val: string): string {
   if (!val || val.length <= 8) return val ? '****' : '';
   return `${val.slice(0, 4)}...${val.slice(-4)}`;
+}
+
+let cachedVersion: string | null = null;
+export function getAppVersion(): string {
+  if (cachedVersion) return cachedVersion;
+  try {
+    const pkgPath = path.join(resolvePublicDir(), '..', 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const data = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      if (data.version) {
+        cachedVersion = String(data.version);
+        return cachedVersion;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return '1.0.0';
 }
 
 export function createApp(
@@ -63,6 +84,7 @@ export function createApp(
 
     const s = store.getSettings();
     res.json({
+      version: getAppVersion(),
       printers,
       settings: {
         ...s,
@@ -296,6 +318,24 @@ export function createApp(
     }
 
     res.status(201).json({ added });
+  });
+
+  app.get('/api/system/startup', async (_req: Request, res: Response) => {
+    const status = await getStartupStatus();
+    res.json(status);
+  });
+
+  app.put('/api/system/startup', async (req: Request, res: Response) => {
+    const enabled = Boolean(req.body.enabled);
+    const ok = await setStartupEnabled(enabled);
+    const status = await getStartupStatus();
+    res.json({ ok, ...status });
+  });
+
+  app.post('/api/app-window/open', (_req: Request, res: Response) => {
+    const port = Number(process.env.PORT) || 3000;
+    openAppWindow(`http://localhost:${port}`);
+    res.json({ ok: true });
   });
 
   app.post('/api/shutdown', (_req: Request, res: Response) => {
