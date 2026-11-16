@@ -52,6 +52,10 @@ export class PollingScheduler {
       const printers = this.store.getPrinters().filter((p) => p.enabled);
       await Promise.all(
         printers.map(async (printer) => {
+          if (printer.connectionType === 'usb') {
+            await this.alertEngine.evaluateContractExpiry(printer);
+            return;
+          }
           const snapshot = await collectPrinterSnapshot(printer);
           await this.store.saveSnapshot(snapshot);
           await this.alertEngine.evaluate(printer, snapshot);

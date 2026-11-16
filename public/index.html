@@ -36,6 +36,10 @@
           <i data-lucide="radar" class="w-4 h-4"></i>
           <span class="hidden sm:inline">สแกนหาเครื่องปริ้น</span>
         </button>
+        <button id="btn-import-csv" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Import Excel/CSV</span>
+        </button>
         <button id="btn-add-printer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>เพิ่มเครื่องปริ้น</span>
@@ -50,7 +54,7 @@
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
     <!-- Summary Strip -->
-    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <section class="grid grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <p class="text-xs font-medium text-slate-500">เครื่องปริ้นทั้งหมด</p>
         <p id="stat-total" class="text-2xl font-bold text-slate-900 mt-1">0</p>
@@ -64,18 +68,50 @@
         <p id="stat-issues" class="text-2xl font-bold text-amber-600 mt-1">0</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">สัญญาใกล้หมด/หมดแล้ว</p>
+        <p id="stat-expiring" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm col-span-2 lg:col-span-1">
         <p class="text-xs font-medium text-slate-500">ยอดพิมพ์วันนี้ (หน้า)</p>
         <p id="stat-pages-today" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
       </div>
     </section>
 
-    <!-- Printers Grid -->
-    <section>
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base font-semibold text-slate-800">สถานะเครื่องปริ้น (Printers)</h2>
-        <span id="last-updated" class="text-xs text-slate-400">กำลังโหลด...</span>
+    <!-- Printers Grid / Table -->
+    <section class="space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <h2 class="text-base font-semibold text-slate-800">สถานะเครื่องปริ้น (Printers)</h2>
+          <span id="last-updated" class="text-xs text-slate-400">กำลังโหลด...</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP, สัญญา..." class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs w-52 focus:ring-2 focus:ring-indigo-500 outline-none bg-white" />
+          <select id="filter-vendor" class="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white">
+            <option value="">ผู้ให้บริการทั้งหมด</option>
+          </select>
+          <div class="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+            <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-600 text-white">การ์ด</button>
+            <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100">ตาราง</button>
+          </div>
+        </div>
       </div>
       <div id="printers-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+      <div id="printers-table-wrap" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <tr>
+              <th class="py-3 px-4 font-semibold">จุดที่ตั้ง / ชื่อ</th>
+              <th class="py-3 px-3 font-semibold">รุ่น / Serial</th>
+              <th class="py-3 px-3 font-semibold">IP / การเชื่อมต่อ</th>
+              <th class="py-3 px-3 font-semibold">สถานะ & หมึก</th>
+              <th class="py-3 px-3 font-semibold">สัญญา / วันหมดอายุ</th>
+              <th class="py-3 px-3 font-semibold">ค่าเช่า / ผู้ให้บริการ</th>
+              <th class="py-3 px-4 font-semibold text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="printers-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Alert History -->
@@ -95,7 +131,7 @@
 
   <!-- Add/Edit Printer Modal -->
   <div id="printer-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h3 id="printer-modal-title" class="text-lg font-bold text-slate-900">เพิ่มเครื่องปริ้น</h3>
         <button type="button" onclick="closePrinterModal()" class="text-slate-400 hover:text-slate-600">
@@ -104,14 +140,23 @@
       </div>
       <form id="printer-form" class="space-y-3">
         <input type="hidden" id="printer-id" />
-        <div>
-          <label class="block text-xs font-medium text-slate-700 mb-1">ชื่อเครื่องปริ้น</label>
-          <input id="printer-name" type="text" required placeholder="เช่น ห้องบัญชี HP M454" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">ชื่อ / จุดที่ตั้งเครื่อง</label>
+            <input id="printer-name" type="text" required placeholder="เช่น อาคารผู้บริหาร 4 ชั้น 2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">รูปแบบการเชื่อมต่อ</label>
+            <select id="printer-conn-type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+              <option value="network">Network (SNMP)</option>
+              <option value="usb">USB (ไม่เช็ค SNMP / เก็บสัญญา)</option>
+            </select>
+          </div>
         </div>
         <div class="grid grid-cols-3 gap-3">
           <div class="col-span-2">
-            <label class="block text-xs font-medium text-slate-700 mb-1">IP Address</label>
-            <input id="printer-ip" type="text" required placeholder="192.168.1.50" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">IP Address (หรือ -USB)</label>
+            <input id="printer-ip" type="text" required placeholder="192.168.0.252" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Port</label>
@@ -122,6 +167,57 @@
           <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Community</label>
           <input id="printer-community" type="text" value="public" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
         </div>
+
+        <details class="border border-slate-200 rounded-xl p-3 bg-slate-50/60">
+          <summary class="text-xs font-semibold text-slate-700 cursor-pointer">ข้อมูลสินทรัพย์และสัญญาเช่า (Asset & Contract)</summary>
+          <div class="mt-3 space-y-2.5">
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">รุ่นเครื่องพิมพ์</label>
+                <input id="asset-model" type="text" placeholder="เช่น Minolta BHC251I" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">รหัสเครื่อง (Serial)</label>
+                <input id="asset-serial" type="text" placeholder="ADXM041005929" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">เลขสัญญา</label>
+                <input id="asset-contract-no" type="text" placeholder="04A25240015" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">ผู้ให้บริการ / หมายเหตุ</label>
+                <input id="asset-vendor" type="text" placeholder="Konica / JoB Ent." class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">วันเริ่มสัญญา (พ.ศ.)</label>
+                <input id="asset-start-date" type="text" placeholder="01/07/2568" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">วันสิ้นสุดสัญญา (พ.ศ.)</label>
+                <input id="asset-end-date" type="text" placeholder="29/06/2573" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">ค่าเช่า/เดือน</label>
+                <input id="asset-cost" type="text" placeholder="2,750.00 หรือ ตามจริง/0.35/ผ" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">ระยะเวลาสัญญา</label>
+                <input id="asset-term" type="text" placeholder="เช่าเครื่อง/บริการ 5 ปี" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">ประเภท / โควต้า</label>
+              <input id="asset-capabilities" type="text" placeholder="สแกน/ถ่ายเอกสาร/พิมพ์ สี/ขาวดำ A4/A3" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" />
+            </div>
+          </div>
+        </details>
+
         <div class="pt-1 flex items-center gap-2">
           <input id="printer-simulator" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
           <label for="printer-simulator" class="text-sm text-slate-700">เปิดโหมดจำลอง (Simulator Mode สำหรับทดสอบ)</label>
@@ -176,7 +272,7 @@
             <input id="set-poll-interval" type="number" min="10" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">เวลารายงานประจำวัน (Cron)</label>
             <input id="set-daily-cron" type="text" placeholder="0 18 * * *" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
@@ -184,6 +280,10 @@
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">Cooldown แจ้งเตือนซ้ำ (นาที)</label>
             <input id="set-cooldown" type="number" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">เตือนก่อนหมดสัญญา (วัน)</label>
+            <input id="set-contract-days" type="number" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
           </div>
         </div>
         <div class="pt-3 flex items-center justify-between gap-2 border-t border-slate-100">
@@ -236,6 +336,49 @@
       <div id="scan-actions" class="pt-2 flex justify-end gap-2 hidden">
         <button type="button" onclick="closeScanModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">ปิด</button>
         <button id="btn-import-selected" type="button" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">เพิ่มเครื่องที่เลือก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Excel/CSV Modal -->
+  <div id="import-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="text-lg font-bold text-slate-900">นำเข้าข้อมูลเครื่องปริ้นจาก Excel / CSV</h3>
+        </div>
+        <button type="button" onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500">ก๊อปปี้ตารางจาก Excel/Google Sheets มาวางลงด้านล่าง หรืออัปโหลดไฟล์ .csv (เรียงคอลัมน์: No., จุดที่ตั้ง, รุ่น, รหัสเครื่อง, IP/-USB, เลขสัญญา, ประเภท, ว.ด.ป. สัญญา, สัญญา/ปี, ค่าเช่า/เดือน, หมายเหตุ)</p>
+      <div class="flex items-center gap-3">
+        <input id="import-file-input" type="file" accept=".csv,.tsv,.txt" class="text-xs text-slate-600" />
+      </div>
+      <textarea id="import-raw-text" rows="5" placeholder="วางข้อมูลจาก Excel หรือ CSV ที่นี่..." class="w-full p-3 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+      <div class="flex justify-between items-center">
+        <span id="import-preview-count" class="text-xs text-slate-500"></span>
+        <div class="flex gap-2">
+          <button id="btn-preview-import" type="button" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700">ตรวจสอบข้อมูล (Preview)</button>
+          <button id="btn-confirm-import" type="button" class="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white hidden">นำเข้าทั้งหมด</button>
+        </div>
+      </div>
+      <div id="import-preview-wrap" class="hidden border border-slate-200 rounded-xl overflow-auto max-h-60">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600">
+            <tr>
+              <th class="p-2">จุดที่ตั้ง</th>
+              <th class="p-2">รุ่น</th>
+              <th class="p-2">Serial</th>
+              <th class="p-2">IP</th>
+              <th class="p-2">สัญญา</th>
+              <th class="p-2">สิ้นสุด</th>
+              <th class="p-2">ผู้ให้บริการ</th>
+            </tr>
+          </thead>
+          <tbody id="import-preview-body" class="divide-y divide-slate-100"></tbody>
+        </table>
       </div>
     </div>
   </div>

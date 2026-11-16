@@ -18,6 +18,19 @@ export type PrinterErrorFlag =
 
 export type SimulatorScenario = 'normal' | 'low_ink' | 'paper_jam' | 'offline';
 
+export interface PrinterAssetInfo {
+  location?: string;
+  modelName?: string;
+  serialNumber?: string;
+  contractNumber?: string;
+  capabilities?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  contractTerm?: string;
+  monthlyCost?: string;
+  vendorNote?: string;
+}
+
 export interface PrinterConfig {
   id: string;
   name: string;
@@ -27,6 +40,8 @@ export interface PrinterConfig {
   enabled: boolean;
   simulator: boolean;
   simulatorScenario?: SimulatorScenario;
+  connectionType?: 'network' | 'usb';
+  asset?: PrinterAssetInfo;
 }
 
 export interface SupplyItem {
@@ -60,7 +75,15 @@ export interface AlertRecord {
   id: string;
   printerId: string;
   printerName: string;
-  type: 'low_ink' | 'paper_jam' | 'no_paper' | 'offline' | 'hardware_error' | 'daily_summary' | 'test';
+  type:
+    | 'low_ink'
+    | 'paper_jam'
+    | 'no_paper'
+    | 'offline'
+    | 'hardware_error'
+    | 'contract_expiring'
+    | 'daily_summary'
+    | 'test';
   message: string;
   deliveryStatus: 'sent' | 'skipped' | 'failed';
   errorDetail?: string;
@@ -80,6 +103,7 @@ export interface AppSettings {
   lowInkThresholdPercent: number;
   dailyReportCron: string;
   alertCooldownMinutes: number;
+  contractExpiryAlertDays: number;
   lineChannelAccessToken: string;
   lineChannelSecret: string;
   lineTargetId: string;
@@ -90,6 +114,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lowInkThresholdPercent: 15,
   dailyReportCron: '0 18 * * *',
   alertCooldownMinutes: 360,
+  contractExpiryAlertDays: 30,
   lineChannelAccessToken: '',
   lineChannelSecret: '',
   lineTargetId: '',

@@ -7,6 +7,8 @@ import { PollingScheduler } from '../scheduler/runner.js';
 import { expandIpTargets, getLocalSubnets, scanTargets } from '../snmp/scanner.js';
 import { JsonStore } from '../storage/store.js';
 import { PrinterConfig } from '../types.js';
+import { getContractDaysRemaining } from '../utils/contract.js';
+import { parsePrinterSpreadsheetText } from '../utils/csvImport.js';
 import { resolvePublicDir } from '../utils/runtime.js';
 
 function maskSecret(val: string): string {
@@ -55,6 +57,7 @@ export function createApp(
       ...printer,
       snapshot: store.getSnapshot(printer.id) ?? null,
       dailyStat: store.getDailyStat(printer.id, todayStr) ?? null,
+      contractDaysRemaining: getContractDaysRemaining(printer.asset?.contractEndDate),
     }));
 
     const s = store.getSettings();
@@ -86,6 +89,8 @@ export function createApp(
       enabled: body.enabled ?? true,
       simulator: Boolean(body.simulator),
       simulatorScenario: body.simulatorScenario ?? 'normal',
+      connectionType: body.connectionType ?? (body.ip.toUpperCase().includes('USB') ? 'usb' : 'network'),
+      asset: body.asset,
     };
     await store.upsertPrinter(printer);
     res.status(201).json(printer);
@@ -127,6 +132,7 @@ export function createApp(
     if (typeof body.pollIntervalSeconds === 'number') patch.pollIntervalSeconds = Math.max(10, body.pollIntervalSeconds);
     if (typeof body.lowInkThresholdPercent === 'number') patch.lowInkThresholdPercent = Math.min(90, Math.max(1, body.lowInkThresholdPercent));
     if (typeof body.alertCooldownMinutes === 'number') patch.alertCooldownMinutes = Math.max(1, body.alertCooldownMinutes);
+    if (typeof body.contractExpiryAlertDays === 'number') patch.contractExpiryAlertDays = Math.max(1, body.contractExpiryAlertDays);
     if (typeof body.dailyReportCron === 'string') patch.dailyReportCron = body.dailyReportCron.trim();
     if (typeof body.lineChannelAccessToken === 'string' && body.lineChannelAccessToken.trim()) {
       patch.lineChannelAccessToken = body.lineChannelAccessToken.trim();
@@ -197,7 +203,14 @@ export function createApp(
 
   app.post('/api/printers/bulk', async (req: Request, res: Response) => {
     const body = req.body as {
-      printers?: Array<{ name?: string; ip: string; community?: string; port?: number }>;
+      printers?: Array<{
+        name?: string;
+        ip: string;
+        community?: string;
+        port?: number;
+        connectionType?: 'network' | 'usb';
+        asset?: PrinterConfig['asset'];
+      }>;
     };
     const items = body.printers ?? [];
     if (!Array.isArray(items) || items.length === 0) {
@@ -205,22 +218,71 @@ export function createApp(
       return;
     }
 
-    const existingIps = new Set(store.getPrinters().map((p) => p.ip));
+    const existingIps = new Set(store.getPrinters().filter((p) => p.connectionType !== 'usb').map((p) => p.ip));
     const added: PrinterConfig[] = [];
 
     for (const item of items) {
-      if (!item.ip || existingIps.has(item.ip.trim())) continue;
+      if (!item.ip) continue;
+      const ipTrim = item.ip.trim();
+      const isUsb = item.connectionType === 'usb' || ipTrim.toUpperCase().includes('USB');
+      if (!isUsb && existingIps.has(ipTrim)) continue;
       const printer: PrinterConfig = {
         id: crypto.randomUUID(),
-        name: item.name?.trim() || `Printer (${item.ip.trim()})`,
-        ip: item.ip.trim(),
+        name: item.name?.trim() || `Printer (${ipTrim})`,
+        ip: ipTrim,
         community: item.community?.trim() || 'public',
         port: Number(item.port) || 161,
         enabled: true,
         simulator: false,
+        connectionType: isUsb ? 'usb' : 'network',
+        asset: item.asset,
       };
       await store.upsertPrinter(printer);
-      existingIps.add(printer.ip);
+      if (!isUsb) existingIps.add(printer.ip);
+      added.push(printer);
+    }
+
+    res.status(201).json({ added });
+  });
+
+  app.post('/api/printers/import-csv', async (req: Request, res: Response) => {
+    const body = req.body as { rawText?: string; dryRun?: boolean };
+    if (!body.rawText || !body.rawText.trim()) {
+      res.status(400).json({ error: 'rawText is required' });
+      return;
+    }
+
+    const rows = parsePrinterSpreadsheetText(body.rawText);
+    if (body.dryRun) {
+      res.json({ rows });
+      return;
+    }
+
+    const existingIps = new Set(store.getPrinters().filter((p) => p.connectionType !== 'usb').map((p) => p.ip));
+    const existingSerials = new Set(
+      store.getPrinters().map((p) => p.asset?.serialNumber).filter(Boolean) as string[]
+    );
+    const added: PrinterConfig[] = [];
+
+    for (const row of rows) {
+      const isUsb = row.connectionType === 'usb';
+      if (!isUsb && existingIps.has(row.ip)) continue;
+      if (row.asset.serialNumber && existingSerials.has(row.asset.serialNumber)) continue;
+
+      const printer: PrinterConfig = {
+        id: crypto.randomUUID(),
+        name: row.name,
+        ip: row.ip,
+        community: 'public',
+        port: 161,
+        enabled: true,
+        simulator: false,
+        connectionType: row.connectionType,
+        asset: row.asset,
+      };
+      await store.upsertPrinter(printer);
+      if (!isUsb) existingIps.add(printer.ip);
+      if (row.asset.serialNumber) existingSerials.add(row.asset.serialNumber);
       added.push(printer);
     }
 

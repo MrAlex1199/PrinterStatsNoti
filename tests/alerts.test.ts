@@ -66,4 +66,30 @@ describe('AlertEngine', () => {
     expect(third).toHaveLength(1);
     expect(sendPushMessage).toHaveBeenCalledTimes(2);
   });
+
+  it('emits contract_expiring alert when contract ends within threshold and deduplicates', async () => {
+    const engine = new AlertEngine(store, { sendPushMessage });
+    const contractPrinter: PrinterConfig = {
+      ...printer,
+      id: 'p-contract',
+      asset: {
+        location: 'อาคารผู้บริหาร ชั้น 1',
+        serialNumber: 'LZP5702954',
+        contractNumber: '618',
+        contractEndDate: '25/11/2569', // 2026-11-25
+        vendorNote: 'Konica',
+      },
+    };
+    const nowMs = Date.UTC(2026, 10, 16); // 2026-11-16 (9 days left)
+    const alert1 = await engine.evaluateContractExpiry(contractPrinter, nowMs);
+    expect(alert1).not.toBeNull();
+    expect(alert1?.type).toBe('contract_expiring');
+    expect(alert1?.message).toContain('LZP5702954');
+    expect(sendPushMessage).toHaveBeenCalledTimes(1);
+
+    // 1 hour later -> deduplicated (24h cooldown)
+    const alert2 = await engine.evaluateContractExpiry(contractPrinter, nowMs + 3600_000);
+    expect(alert2).toBeNull();
+    expect(sendPushMessage).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { JsonStore } from '../storage/store.js';
 import { AlertRecord, PrinterConfig, PrinterSnapshot, PrinterStatus } from '../types.js';
+import { getContractDaysRemaining } from '../utils/contract.js';
 
 export interface AlertNotifier {
   sendPushMessage(text: string): Promise<{ ok: boolean; error?: string }>;
@@ -43,6 +44,48 @@ export class AlertEngine {
     return record;
   }
 
+  private formatAssetSuffix(printer: PrinterConfig): string {
+    const a = printer.asset;
+    if (!a) return '';
+    const parts = [
+      a.location ? `📍 ${a.location}` : '',
+      a.serialNumber ? `SN: ${a.serialNumber}` : '',
+      a.contractNumber ? `สัญญา: ${a.contractNumber}` : '',
+      a.vendorNote ? `(${a.vendorNote})` : '',
+    ].filter(Boolean);
+    return parts.length > 0 ? `\n${parts.join(' | ')}` : '';
+  }
+
+  async evaluateContractExpiry(
+    printer: PrinterConfig,
+    nowMs: number = Date.now()
+  ): Promise<AlertRecord | null> {
+    const settings = this.store.getSettings();
+    const days = getContractDaysRemaining(printer.asset?.contractEndDate, new Date(nowMs));
+    const key = `${printer.id}:contractExpiring`;
+
+    if (days === null || days > settings.contractExpiryAlertDays) {
+      await this.store.clearLastAlertTime(key);
+      return null;
+    }
+
+    const statusText =
+      days < 0
+        ? `หมดสัญญาแล้ว ${Math.abs(days)} วัน`
+        : days === 0
+          ? 'ครบกำหนดสิ้นสุดสัญญาวันนี้'
+          : `สัญญาใกล้หมดอายุในอีก ${days} วัน`;
+
+    return this.dispatchAlert(
+      printer,
+      'contract_expiring',
+      key,
+      `📋 [${printer.name}] ${statusText} (สิ้นสุด ${printer.asset?.contractEndDate})${this.formatAssetSuffix(printer)}`,
+      1440, // 24 hours cooldown
+      nowMs
+    );
+  }
+
   async evaluate(
     printer: PrinterConfig,
     snapshot: PrinterSnapshot,
@@ -63,7 +106,7 @@ export class AlertEngine {
         printer,
         'offline',
         offlineKey,
-        `🔴 [${printer.name}] เครื่องปริ้นออฟไลน์ / ไม่ตอบสนอง (${printer.ip})`,
+        `🔴 [${printer.name}] เครื่องปริ้นออฟไลน์ / ไม่ตอบสนอง (${printer.ip})${this.formatAssetSuffix(printer)}`,
         30,
         nowMs
       );
@@ -80,7 +123,7 @@ export class AlertEngine {
         printer,
         'paper_jam',
         jamKey,
-        `⚠️ [${printer.name}] กระดาษติด (Paper Jam)! กรุณาตรวจสอบเครื่องปริ้น`,
+        `⚠️ [${printer.name}] กระดาษติด (Paper Jam)! กรุณาตรวจสอบเครื่องปริ้น${this.formatAssetSuffix(printer)}`,
         30,
         nowMs
       );
@@ -96,7 +139,7 @@ export class AlertEngine {
         printer,
         'no_paper',
         noPaperKey,
-        `📄 [${printer.name}] กระดาษหมด (Out of Paper)! กรุณาเติมกระดาษ`,
+        `📄 [${printer.name}] กระดาษหมด (Out of Paper)! กรุณาเติมกระดาษ${this.formatAssetSuffix(printer)}`,
         30,
         nowMs
       );
@@ -121,7 +164,7 @@ export class AlertEngine {
         printer,
         'hardware_error',
         hwKey,
-        `🛠️ [${printer.name}] พบปัญหาฮาร์ดแวร์: ${reasons}`,
+        `🛠️ [${printer.name}] พบปัญหาฮาร์ดแวร์: ${reasons}${this.formatAssetSuffix(printer)}`,
         30,
         nowMs
       );
@@ -142,7 +185,7 @@ export class AlertEngine {
         printer,
         'low_ink',
         lowInkKey,
-        `💧 [${printer.name}] หมึกใกล้หมด (<= ${threshold}%): ${details}`,
+        `💧 [${printer.name}] หมึกใกล้หมด (<= ${threshold}%): ${details}${this.formatAssetSuffix(printer)}`,
         settings.alertCooldownMinutes,
         nowMs
       );
@@ -150,6 +193,9 @@ export class AlertEngine {
     } else {
       await this.store.clearLastAlertTime(lowInkKey);
     }
+
+    const contractAlert = await this.evaluateContractExpiry(printer, nowMs);
+    if (contractAlert) emitted.push(contractAlert);
 
     return emitted;
   }

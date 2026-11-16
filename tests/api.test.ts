@@ -70,4 +70,31 @@ describe('Express API', () => {
     expect(bulkRes.status).toBe(201);
     expect(bulkRes.body.added).toHaveLength(2);
   });
+
+  it('previews and imports CSV/TSV spreadsheet rows including -USB and asset metadata', async () => {
+    const app = (globalThis as unknown as { testApp: ReturnType<typeof createApp> }).testApp;
+    const rawText = [
+      'No.\tจุดที่ตั้งเครื่อง\tรุ่น\tรหัสเครื่อง\tIP\tเลขสัญญา\tประเภท\tว.ด.ป. สัญญา\tสัญญา/ปี\tค่าเช่า/เดือน\tหมายเหตุ',
+      '1\tอาคารผู้บริหาร 4 ชั้น 2\tMinolta BHC251I\tADXM041005929\t192.168.0.252\t04A25240015\tสแกน/พิมพ์ สี\t01/07/2568-29/06/2573\tเช่า 5 ปี\t2,750.00\tKonica',
+      '11\tอาคารผู้บริหาร 4 ชั้น 1\tKYOCERA M2535dn\tLZP5702954\t-USB\t618\tพิมพ์ ขาวดำ\t15/11/2568-14/11/2569\tบริการ 1 ปี\tตามจริง/0.35/ผ\t**ทรัพย์สินบริษัทฯ',
+    ].join('\n');
+
+    const previewRes = await request(app)
+      .post('/api/printers/import-csv')
+      .send({ rawText, dryRun: true });
+    expect(previewRes.status).toBe(200);
+    expect(previewRes.body.rows).toHaveLength(2);
+
+    const importRes = await request(app)
+      .post('/api/printers/import-csv')
+      .send({ rawText, dryRun: false });
+    expect(importRes.status).toBe(201);
+    expect(importRes.body.added).toHaveLength(2);
+
+    const statusRes = await request(app).get('/api/status');
+    const usbPrinter = statusRes.body.printers.find((p: { connectionType: string }) => p.connectionType === 'usb');
+    expect(usbPrinter).toBeTruthy();
+    expect(usbPrinter.asset.serialNumber).toBe('LZP5702954');
+    expect(typeof usbPrinter.contractDaysRemaining).toBe('number');
+  });
 });
