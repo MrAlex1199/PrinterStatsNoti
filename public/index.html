@@ -32,6 +32,10 @@
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           <span class="hidden sm:inline">เช็คสถานะทันที</span>
         </button>
+        <button id="btn-scan-network" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
+          <i data-lucide="radar" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">สแกนหาเครื่องปริ้น</span>
+        </button>
         <button id="btn-add-printer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>เพิ่มเครื่องปริ้น</span>
@@ -192,6 +196,47 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Scan Network Modal -->
+  <div id="scan-modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="radar" class="w-5 h-5 text-emerald-600"></i>
+          <h3 class="text-lg font-bold text-slate-900">สแกนหาเครื่องปริ้นในเครือข่าย (SNMP)</h3>
+        </div>
+        <button type="button" onclick="closeScanModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="scan-form" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-700 mb-1">วง IP / CIDR (ใส่หลายวงคั่นด้วย , ได้)</label>
+            <input id="scan-subnets" type="text" required placeholder="192.168.1.0/24" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">SNMP Community</label>
+            <input id="scan-community" type="text" value="public" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-slate-500">จำกัดไม่เกิน 1,024 IP ต่อครั้ง</p>
+          <button id="btn-start-scan" type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition">
+            เริ่มสแกน
+          </button>
+        </div>
+      </form>
+
+      <div id="scan-status" class="text-sm text-slate-600 hidden"></div>
+      <div id="scan-results" class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-y-auto max-h-64 hidden"></div>
+
+      <div id="scan-actions" class="pt-2 flex justify-end gap-2 hidden">
+        <button type="button" onclick="closeScanModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">ปิด</button>
+        <button id="btn-import-selected" type="button" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">เพิ่มเครื่องที่เลือก</button>
+      </div>
     </div>
   </div>
 

@@ -49,4 +49,25 @@ describe('Express API', () => {
     expect(statusRes.body.printers).toHaveLength(1);
     expect(statusRes.body.printers[0].snapshot.supplies.length).toBeGreaterThan(0);
   });
+
+  it('lists local subnets, validates scan input, and bulk-adds printers', async () => {
+    const app = (globalThis as unknown as { testApp: ReturnType<typeof createApp> }).testApp;
+    const netRes = await request(app).get('/api/network-interfaces');
+    expect(netRes.status).toBe(200);
+    expect(Array.isArray(netRes.body.subnets)).toBe(true);
+
+    const badScan = await request(app).post('/api/scan').send({ subnets: '10.0.0.0/8' });
+    expect(badScan.status).toBe(400);
+
+    const bulkRes = await request(app)
+      .post('/api/printers/bulk')
+      .send({
+        printers: [
+          { name: 'Floor 2 HP', ip: '192.168.1.201', community: 'public', port: 161 },
+          { name: 'Floor 3 Canon', ip: '192.168.1.202', community: 'public', port: 161 },
+        ],
+      });
+    expect(bulkRes.status).toBe(201);
+    expect(bulkRes.body.added).toHaveLength(2);
+  });
 });

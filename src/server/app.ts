@@ -5,6 +5,7 @@ import { validateSignature, WebhookEvent } from '@line/bot-sdk';
 import { AlertEngine } from '../alerts/engine.js';
 import { LineService } from '../line/service.js';
 import { PollingScheduler } from '../scheduler/runner.js';
+import { expandIpTargets, getLocalSubnets, scanTargets } from '../snmp/scanner.js';
 import { JsonStore } from '../storage/store.js';
 import { PrinterConfig } from '../types.js';
 
@@ -162,6 +163,68 @@ export function createApp(
   app.post('/api/daily-report', async (_req: Request, res: Response) => {
     const record = await alertEngine.sendDailySummary();
     res.json(record);
+  });
+
+  app.get('/api/network-interfaces', (_req: Request, res: Response) => {
+    res.json({ subnets: getLocalSubnets() });
+  });
+
+  app.post('/api/scan', async (req: Request, res: Response) => {
+    const body = req.body as { subnets?: string; community?: string; port?: number };
+    const subnetStr = (body.subnets || '').trim();
+    if (!subnetStr) {
+      res.status(400).json({ error: 'subnets is required (e.g. 192.168.1.0/24)' });
+      return;
+    }
+
+    let targets: string[];
+    try {
+      targets = expandIpTargets(subnetStr);
+    } catch (err: unknown) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+
+    const existingIps = new Set(store.getPrinters().map((p) => p.ip));
+    const discovered = await scanTargets(targets, {
+      community: body.community?.trim() || 'public',
+      port: Number(body.port) || 161,
+      existingIps,
+    });
+
+    res.json({ scannedCount: targets.length, discovered });
+  });
+
+  app.post('/api/printers/bulk', async (req: Request, res: Response) => {
+    const body = req.body as {
+      printers?: Array<{ name?: string; ip: string; community?: string; port?: number }>;
+    };
+    const items = body.printers ?? [];
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: 'printers array is required' });
+      return;
+    }
+
+    const existingIps = new Set(store.getPrinters().map((p) => p.ip));
+    const added: PrinterConfig[] = [];
+
+    for (const item of items) {
+      if (!item.ip || existingIps.has(item.ip.trim())) continue;
+      const printer: PrinterConfig = {
+        id: crypto.randomUUID(),
+        name: item.name?.trim() || `Printer (${item.ip.trim()})`,
+        ip: item.ip.trim(),
+        community: item.community?.trim() || 'public',
+        port: Number(item.port) || 161,
+        enabled: true,
+        simulator: false,
+      };
+      await store.upsertPrinter(printer);
+      existingIps.add(printer.ip);
+      added.push(printer);
+    }
+
+    res.status(201).json({ added });
   });
 
   return app;

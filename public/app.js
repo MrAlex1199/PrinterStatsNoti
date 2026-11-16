@@ -315,5 +315,129 @@ document.getElementById('btn-daily-report').addEventListener('click', async () =
   await fetchStatus();
 });
 
+let lastDiscovered = [];
+
+async function openScanModal() {
+  document.getElementById('scan-results').classList.add('hidden');
+  document.getElementById('scan-actions').classList.add('hidden');
+  document.getElementById('scan-status').classList.add('hidden');
+  document.getElementById('scan-modal').classList.remove('hidden');
+  document.getElementById('scan-modal').classList.add('flex');
+
+  const input = document.getElementById('scan-subnets');
+  if (!input.value) {
+    try {
+      const res = await fetch('/api/network-interfaces');
+      const data = await res.json();
+      if (data.subnets?.length > 0) {
+        input.value = data.subnets.join(', ');
+      } else {
+        input.value = '192.168.1.0/24';
+      }
+    } catch {
+      input.value = '192.168.1.0/24';
+    }
+  }
+  lucide.createIcons();
+}
+
+function closeScanModal() {
+  document.getElementById('scan-modal').classList.add('hidden');
+  document.getElementById('scan-modal').classList.remove('flex');
+}
+
+document.getElementById('btn-scan-network').addEventListener('click', openScanModal);
+
+document.getElementById('scan-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-start-scan');
+  const statusEl = document.getElementById('scan-status');
+  const resultsEl = document.getElementById('scan-results');
+  const actionsEl = document.getElementById('scan-actions');
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังสแกน...';
+  statusEl.classList.remove('hidden');
+  statusEl.textContent = 'กำลังสแกนหาเครื่องปริ้นในเครือข่าย โปรดรอสักครู่...';
+  resultsEl.classList.add('hidden');
+  actionsEl.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subnets: document.getElementById('scan-subnets').value,
+        community: document.getElementById('scan-community').value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.textContent = `เกิดข้อผิดพลาด: ${data.error}`;
+      return;
+    }
+
+    lastDiscovered = data.discovered || [];
+    statusEl.textContent = `สแกนทั้งหมด ${data.scannedCount} IP — พบเครื่องปริ้น ${lastDiscovered.length} เครื่อง`;
+
+    if (lastDiscovered.length === 0) {
+      resultsEl.innerHTML = `<div class="p-4 text-center text-sm text-slate-400">ไม่พบเครื่องปริ้นที่เปิดใช้งาน SNMP ในวง IP นี้</div>`;
+      resultsEl.classList.remove('hidden');
+      return;
+    }
+
+    resultsEl.innerHTML = lastDiscovered
+      .map((item, idx) => `
+        <label class="flex items-center justify-between gap-3 p-3 hover:bg-slate-50 cursor-pointer">
+          <div class="flex items-center gap-3 min-w-0">
+            <input type="checkbox" class="scan-checkbox rounded border-slate-300 text-indigo-600" data-index="${idx}" ${item.alreadyAdded ? 'disabled' : 'checked'} />
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(item.ip)}</p>
+              <p class="text-xs text-slate-500 truncate">${escapeHtml(item.model)}</p>
+            </div>
+          </div>
+          ${
+            item.alreadyAdded
+              ? '<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-500 shrink-0">มีในระบบแล้ว</span>'
+              : '<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-700 shrink-0">พบใหม่</span>'
+          }
+        </label>
+      `)
+      .join('');
+    resultsEl.classList.remove('hidden');
+
+    if (lastDiscovered.some((d) => !d.alreadyAdded)) {
+      actionsEl.classList.remove('hidden');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'เริ่มสแกน';
+  }
+});
+
+document.getElementById('btn-import-selected').addEventListener('click', async () => {
+  const checked = [...document.querySelectorAll('.scan-checkbox:checked')];
+  const printers = checked.map((cb) => {
+    const item = lastDiscovered[Number(cb.dataset.index)];
+    return {
+      name: item.model.slice(0, 40) || `Printer (${item.ip})`,
+      ip: item.ip,
+      community: item.community,
+      port: item.port,
+    };
+  });
+
+  if (printers.length === 0) return;
+
+  await fetch('/api/printers/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ printers }),
+  });
+  closeScanModal();
+  await fetch('/api/poll', { method: 'POST' });
+  await fetchStatus();
+});
+
 fetchStatus();
 setInterval(fetchStatus, 10000);
