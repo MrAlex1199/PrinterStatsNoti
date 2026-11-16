@@ -20,7 +20,8 @@ export function createApp(
   store: JsonStore,
   scheduler: PollingScheduler,
   lineService: LineService,
-  alertEngine: AlertEngine
+  alertEngine: AlertEngine,
+  onShutdown?: () => void
 ): Express {
   const app = express();
 
@@ -298,9 +299,14 @@ export function createApp(
   });
 
   app.post('/api/shutdown', (_req: Request, res: Response) => {
+    res.setHeader('Connection', 'close');
     res.json({ ok: true });
     scheduler.stop();
-    setTimeout(() => process.exit(0), 200);
+    if (onShutdown) {
+      onShutdown();
+    } else {
+      setTimeout(() => process.exit(0), 150).unref();
+    }
   });
 
   return app;

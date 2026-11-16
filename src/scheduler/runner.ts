@@ -36,6 +36,7 @@ export class PollingScheduler {
     this.pollTimer = setInterval(() => {
       void this.pollAllNow();
     }, intervalMs);
+    this.pollTimer.unref();
 
     const cronExpr = cron.validate(settings.dailyReportCron)
       ? settings.dailyReportCron

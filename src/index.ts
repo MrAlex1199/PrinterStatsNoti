@@ -109,17 +109,43 @@ async function main() {
   const lineService = new LineService(store);
   const alertEngine = new AlertEngine(store, lineService);
   const scheduler = new PollingScheduler(store, alertEngine);
-  const app = createApp(store, scheduler, lineService, alertEngine);
+
+  let server: ReturnType<typeof app.listen> | null = null;
+  let isShuttingDown = false;
+
+  const shutdownGracefully = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    scheduler.stop();
+    const forceTimer = setTimeout(() => process.exit(0), 500);
+    forceTimer.unref();
+    if (server) {
+      server.closeAllConnections?.();
+      server.close(() => {
+        clearTimeout(forceTimer);
+        process.exit(0);
+      });
+    } else {
+      process.exit(0);
+    }
+  };
+
+  const app = createApp(store, scheduler, lineService, alertEngine, () => {
+    setTimeout(shutdownGracefully, 100);
+  });
 
   const port = Number(process.env.PORT) || 3000;
   const url = `http://localhost:${port}`;
-  const server = app.listen(port, () => {
+  server = app.listen(port, () => {
     console.log(`🖨️  PrinterStatsNoti running at ${url}`);
     scheduler.start();
     if (isPackagedBinary()) {
       openBrowser(url);
     }
   });
+
+  process.on('SIGINT', shutdownGracefully);
+  process.on('SIGTERM', shutdownGracefully);
 
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {

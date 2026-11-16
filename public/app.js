@@ -1,5 +1,6 @@
 let currentData = null;
 let currentView = 'cards';
+let lastRenderedSignature = '';
 
 const statusBadgeMap = {
   online: { label: 'พร้อมใช้', cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
@@ -176,6 +177,11 @@ function renderPrintersList() {
       groups.get(b).push(p);
     }
 
+    const sig = filtered.map((p) => p.id).join(',');
+    const shouldAnimate = sig !== lastRenderedSignature;
+    lastRenderedSignature = sig;
+    let cardIdx = 0;
+
     container.innerHTML = [...groups.entries()]
       .map(([brandName, items]) => {
         const issueInGroup = items.filter(
@@ -196,7 +202,7 @@ function renderPrintersList() {
               </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              ${items.map(renderCompactCard).join('')}
+              ${items.map((item) => renderCompactCard(item, shouldAnimate ? cardIdx++ : -1)).join('')}
             </div>
           </div>
         `;
@@ -214,13 +220,16 @@ function renderPrintersList() {
   lucide.createIcons();
 }
 
-function renderCompactCard(p) {
+function renderCompactCard(p, animIndex = -1) {
   const snap = p.snapshot;
   const isUsb = p.connectionType === 'usb';
   const status = isUsb ? 'usb' : snap?.status || 'offline';
   const badge = statusBadgeMap[status] || statusBadgeMap.offline;
   const a = p.asset || {};
   const threshold = currentData?.settings?.lowInkThresholdPercent ?? 15;
+  const isAlertStatus = status === 'warning' || status === 'error';
+  const animClass = animIndex >= 0 ? 'animate-card-enter' : '';
+  const animStyle = animIndex >= 0 ? `style="animation-delay:${Math.min(animIndex, 12) * 35}ms"` : '';
 
   const modelText = a.modelName || snap?.model || 'ไม่ระบุรุ่น';
 
@@ -244,7 +253,7 @@ function renderCompactCard(p) {
                   <span class="font-semibold ${low ? 'text-rose-600' : 'text-slate-700'}">${s.percent !== null ? `${pct}%` : '-'}</span>
                 </div>
                 <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full" style="width:${s.percent !== null ? pct : 0}%; background-color:${s.color || '#334155'}"></div>
+                  <div class="ink-bar-fill h-full rounded-full" style="width:${s.percent !== null ? pct : 0}%; background-color:${s.color || '#334155'}"></div>
                 </div>
               </div>
             `;
@@ -264,11 +273,14 @@ function renderCompactCard(p) {
       : '';
 
   return `
-    <div onclick="openDetailModal('${p.id}')" class="group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md p-3.5 transition cursor-pointer flex flex-col justify-between gap-2.5">
+    <div onclick="openDetailModal('${p.id}')" ${animStyle} class="${animClass} card-hover group bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5 p-3.5 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-2.5">
       <div class="space-y-2">
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="w-2 h-2 rounded-full shrink-0 ${badge.dot}"></span>
+            <span class="relative flex h-2 w-2 shrink-0">
+              ${isAlertStatus ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${badge.dot} opacity-75"></span>` : ''}
+              <span class="relative inline-flex rounded-full h-2 w-2 ${badge.dot}"></span>
+            </span>
             <h3 class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h3>
           </div>
           <span class="px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${badge.cls}">${badge.label}</span>
@@ -564,8 +576,17 @@ document.getElementById('btn-shutdown').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-poll-now').addEventListener('click', async () => {
-  await fetch('/api/poll', { method: 'POST' });
-  await fetchStatus();
+  const btn = document.getElementById('btn-poll-now');
+  const icon = btn.querySelector('svg');
+  btn.disabled = true;
+  if (icon) icon.classList.add('animate-spin');
+  try {
+    await fetch('/api/poll', { method: 'POST' });
+    await fetchStatus();
+  } finally {
+    btn.disabled = false;
+    if (icon) icon.classList.remove('animate-spin');
+  }
 });
 document.getElementById('btn-test-line').addEventListener('click', async () => {
   const res = await fetch('/api/test-line', { method: 'POST' });

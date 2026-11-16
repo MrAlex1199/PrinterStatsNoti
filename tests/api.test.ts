@@ -97,4 +97,17 @@ describe('Express API', () => {
     expect(usbPrinter.asset.serialNumber).toBe('LZP5702954');
     expect(typeof usbPrinter.contractDaysRemaining).toBe('number');
   });
+
+  it('invokes onShutdown callback on POST /api/shutdown', async () => {
+    let shutdownCalled = false;
+    const lineSvc = new LineService(store);
+    const alertEngine = new AlertEngine(store, lineSvc);
+    const customApp = createApp(store, scheduler, lineSvc, alertEngine, () => {
+      shutdownCalled = true;
+    });
+    const res = await request(customApp).post('/api/shutdown');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(shutdownCalled).toBe(true);
+  });
 });
