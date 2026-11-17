@@ -1,7 +1,9 @@
 let currentData = null;
-let currentView = 'cards';
+let currentView = 'table';
 let currentKpiFilter = 'all';
 let currentGroupBy = 'brand';
+let currentSortBy = 'status';
+let currentSortDir = 'asc';
 let lastRenderedSignature = '';
 
 const statusBadgeMap = {
@@ -109,6 +111,8 @@ function renderDashboard(data) {
   }
 
   updateKpiPillsUi();
+  updateViewButtonsUi();
+  updateSortUi();
 
   // Populate Brand & Vendor filter options
   const brandSelect = document.getElementById('filter-brand');
@@ -161,6 +165,117 @@ function renderDashboard(data) {
   lucide.createIcons();
 }
 
+const statusPriority = {
+  error: 1,
+  warning: 2,
+  offline: 3,
+  printing: 4,
+  online: 5,
+  usb: 6,
+};
+
+function getPrinterStatusRank(p) {
+  if (p.connectionType === 'usb') return statusPriority.usb;
+  const s = p.snapshot?.status || 'offline';
+  return statusPriority[s] ?? 99;
+}
+
+function getLowestInkPercent(p) {
+  if (p.connectionType === 'usb') return 999;
+  const supplies = p.snapshot?.supplies;
+  if (!supplies || supplies.length === 0) return 998;
+  const valid = supplies.map((s) => s.percent).filter((x) => typeof x === 'number');
+  if (valid.length === 0) return 998;
+  return Math.min(...valid);
+}
+
+function parseIpParts(ip) {
+  const parts = String(ip || '').split('.').map((x) => parseInt(x, 10));
+  if (parts.length === 4 && !parts.some(isNaN)) {
+    return parts[0] * 16777216 + parts[1] * 65536 + parts[2] * 256 + parts[3];
+  }
+  return 9999999999;
+}
+
+function sortPrinters(printers) {
+  const mult = currentSortDir === 'desc' ? -1 : 1;
+  return [...printers].sort((a, b) => {
+    let cmp = 0;
+    if (currentSortBy === 'status') {
+      cmp = getPrinterStatusRank(a) - getPrinterStatusRank(b);
+      if (cmp === 0) cmp = getLowestInkPercent(a) - getLowestInkPercent(b);
+    } else if (currentSortBy === 'ink') {
+      cmp = getLowestInkPercent(a) - getLowestInkPercent(b);
+    } else if (currentSortBy === 'contract') {
+      const dayA = typeof a.contractDaysRemaining === 'number' ? a.contractDaysRemaining : 99999;
+      const dayB = typeof b.contractDaysRemaining === 'number' ? b.contractDaysRemaining : 99999;
+      cmp = dayA - dayB;
+    } else if (currentSortBy === 'name') {
+      cmp = (a.name || '').localeCompare(b.name || '', 'th');
+    } else if (currentSortBy === 'brand') {
+      cmp = detectBrand(a).localeCompare(detectBrand(b), 'th');
+    } else if (currentSortBy === 'ip') {
+      cmp = parseIpParts(a.ip) - parseIpParts(b.ip);
+    }
+    if (cmp === 0) {
+      cmp = (a.name || '').localeCompare(b.name || '', 'th');
+    }
+    return cmp * mult;
+  });
+}
+
+function toggleTableSort(field) {
+  if (currentSortBy === field) {
+    currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSortBy = field;
+    currentSortDir = 'asc';
+  }
+  updateSortUi();
+  renderPrintersList();
+}
+
+function updateSortUi() {
+  const sortSelect = document.getElementById('filter-sort');
+  if (sortSelect && sortSelect.value !== currentSortBy) {
+    sortSelect.value = currentSortBy;
+  }
+  const sortBtn = document.getElementById('btn-sort-dir');
+  if (sortBtn) {
+    sortBtn.title = currentSortDir === 'asc' ? 'กำลังเรียง: น้อยไปมาก (คลิกเพื่อสลับ)' : 'กำลังเรียง: มากไปน้อย (คลิกเพื่อสลับ)';
+    sortBtn.classList.toggle('text-indigo-600', currentSortDir === 'desc');
+    sortBtn.classList.toggle('bg-indigo-50', currentSortDir === 'desc');
+  }
+
+  // Update table header indicators
+  const fields = ['brand', 'name', 'ip', 'status', 'ink', 'contract'];
+  fields.forEach((f) => {
+    const el = document.getElementById(`sort-th-${f}`);
+    if (!el) return;
+    if (currentSortBy === f) {
+      el.textContent = currentSortDir === 'asc' ? '▲' : '▼';
+      el.className = 'text-[11px] text-indigo-600 font-bold';
+    } else {
+      el.textContent = '⇅';
+      el.className = 'text-[10px] text-slate-300 font-normal opacity-60 hover:opacity-100';
+    }
+  });
+}
+
+function updateViewButtonsUi() {
+  const cardsBtn = document.getElementById('view-cards');
+  const tableBtn = document.getElementById('view-table');
+  if (cardsBtn && tableBtn) {
+    if (currentView === 'cards') {
+      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
+      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+    } else {
+      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
+      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+    }
+  }
+}
+
 function getFilteredPrinters() {
   const printers = currentData?.printers || [];
   const q = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
@@ -210,7 +325,7 @@ function getFilteredPrinters() {
     }
   }
 
-  return result;
+  return sortPrinters(result);
 }
 
 function renderContractPill(p) {
@@ -408,7 +523,7 @@ function renderTableSupplies(p) {
   const isUsb = p.connectionType === 'usb';
   if (isUsb) {
     return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
-      <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>USB (ติดตามสัญญา)
+      <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>USB
     </span>`;
   }
   const snap = p.snapshot;
@@ -416,26 +531,23 @@ function renderTableSupplies(p) {
     return `<span class="text-[11px] text-slate-400 italic">ไม่มีข้อมูลหมึก</span>`;
   }
   const threshold = currentData?.settings?.lowInkThresholdPercent ?? 15;
-  const cols = snap.supplies.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
   return `
-    <div class="grid ${cols} gap-x-3 gap-y-1.5 min-w-[210px] max-w-[270px]">
+    <div class="flex flex-wrap items-center gap-1.5 max-w-[320px]">
       ${snap.supplies
         .map((s) => {
           const pct = s.percent ?? 0;
           const isLow = s.percent !== null && s.percent <= threshold;
           const color = s.color || '#334155';
           const shortName = s.name.replace(/toner|cartridge|ink/gi, '').trim() || s.name;
+          const chipCls = isLow
+            ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold ring-1 ring-rose-200'
+            : 'bg-slate-50 border-slate-200/90 text-slate-700';
           return `
-            <div class="flex items-center gap-1.5 text-[11px] py-0.5">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] select-none ${chipCls}" title="${escapeHtml(s.name)}: ${s.percent !== null ? `${pct}%` : 'N/A'}">
               <span class="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300 shadow-xs" style="background-color: ${color}"></span>
-              <span class="text-slate-600 truncate max-w-[65px] font-medium" title="${escapeHtml(s.name)}">${escapeHtml(shortName)}</span>
-              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-[32px]">
-                <div class="h-full rounded-full ${isLow ? 'bg-rose-500' : ''}" style="width: ${s.percent !== null ? Math.min(Math.max(pct, 0), 100) : 0}%; ${!isLow ? `background-color: ${color};` : ''}"></div>
-              </div>
-              <span class="font-mono text-[10px] shrink-0 ${isLow ? 'text-rose-600 font-bold' : 'text-slate-700 font-semibold'}">
-                ${s.percent !== null ? `${pct}%` : '-'}
-              </span>
-            </div>
+              <span class="truncate max-w-[65px] font-medium">${escapeHtml(shortName)}</span>
+              <span class="font-mono text-[10px] ${isLow ? 'text-rose-700 font-bold' : 'text-slate-800 font-semibold'}">${s.percent !== null ? `${pct}%` : '-'}</span>
+            </span>
           `;
         })
         .join('')}
@@ -937,7 +1049,7 @@ document.getElementById('btn-import-selected').addEventListener('click', async (
   await fetchStatus();
 });
 
-// Search, Brand/Vendor Filter, Group By, and View Toggle
+// Search, Brand/Vendor Filter, Group By, Sort, and View Toggle
 document.getElementById('filter-search').addEventListener('input', renderPrintersList);
 document.getElementById('filter-brand').addEventListener('change', renderPrintersList);
 document.getElementById('filter-vendor').addEventListener('change', renderPrintersList);
@@ -945,16 +1057,24 @@ document.getElementById('filter-groupby')?.addEventListener('change', (e) => {
   currentGroupBy = e.target.value;
   renderPrintersList();
 });
+document.getElementById('filter-sort')?.addEventListener('change', (e) => {
+  currentSortBy = e.target.value;
+  updateSortUi();
+  renderPrintersList();
+});
+document.getElementById('btn-sort-dir')?.addEventListener('click', () => {
+  currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+  updateSortUi();
+  renderPrintersList();
+});
 document.getElementById('view-cards').addEventListener('click', () => {
   currentView = 'cards';
-  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
-  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+  updateViewButtonsUi();
   renderPrintersList();
 });
 document.getElementById('view-table').addEventListener('click', () => {
   currentView = 'table';
-  document.getElementById('view-table').className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
-  document.getElementById('view-cards').className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+  updateViewButtonsUi();
   renderPrintersList();
 });
 

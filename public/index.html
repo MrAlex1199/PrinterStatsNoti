@@ -133,11 +133,11 @@
         <span id="filter-count-badge" class="hidden sm:inline text-xs text-slate-500 ml-1"></span>
       </div>
 
-      <!-- Search, Brand/Vendor Filters, GroupBy & View Switcher -->
+      <!-- Search, Brand/Vendor Filters, GroupBy, Sort & View Switcher -->
       <div class="flex flex-wrap items-center gap-2">
         <div class="relative">
           <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
-          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-44 sm:w-52 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
+          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-44 sm:w-48 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
         </div>
         <select id="filter-groupby" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-medium">
           <option value="brand">จัดกลุ่ม: ยี่ห้อ</option>
@@ -145,6 +145,19 @@
           <option value="status">จัดกลุ่ม: สถานะ</option>
           <option value="none">ไม่จัดกลุ่ม (แสดงรวม)</option>
         </select>
+        <div class="flex items-center gap-1">
+          <select id="filter-sort" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-medium">
+            <option value="status">เรียง: สถานะ (ปัญหาขึ้นก่อน)</option>
+            <option value="ink">เรียง: ระดับหมึก (น้อยสุด)</option>
+            <option value="contract">เรียง: สัญญา (ใกล้หมด)</option>
+            <option value="name">เรียง: ชื่อ / จุดที่ตั้ง (ก-ฮ)</option>
+            <option value="brand">เรียง: ยี่ห้อ (A-Z)</option>
+            <option value="ip">เรียง: หมายเลข IP</option>
+          </select>
+          <button id="btn-sort-dir" type="button" title="สลับทิศทางการเรียงลำดับ" class="inline-flex items-center justify-center p-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 hover:bg-slate-100 text-slate-600 transition">
+            <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
         <select id="filter-brand" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
           <option value="">ทุกยี่ห้อ</option>
         </select>
@@ -152,27 +165,39 @@
           <option value="">ทุกผู้ให้บริการ</option>
         </select>
         <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-          <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm">การ์ด</button>
-          <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900">ตาราง</button>
+          <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900">การ์ด</button>
+          <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm">ตาราง</button>
         </div>
       </div>
     </section>
 
     <!-- Grouped / Filtered Printers Container -->
-    <section id="printers-container" class="space-y-4"></section>
+    <section id="printers-container" class="space-y-4 hidden"></section>
 
-    <!-- Compact Table View -->
-    <section id="printers-table-wrap" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+    <!-- Compact Table View (Default View) -->
+    <section id="printers-table-wrap" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
       <table class="w-full text-left border-collapse text-xs">
         <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
           <tr>
-            <th class="py-2.5 px-3 font-semibold">ยี่ห้อ</th>
-            <th class="py-2.5 px-3 font-semibold">จุดที่ตั้ง / ชื่อ</th>
+            <th onclick="toggleTableSort('brand')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+              <span class="inline-flex items-center gap-1">ยี่ห้อ <span id="sort-th-brand" class="text-[10px] text-slate-400"></span></span>
+            </th>
+            <th onclick="toggleTableSort('name')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+              <span class="inline-flex items-center gap-1">จุดที่ตั้ง / ชื่อ <span id="sort-th-name" class="text-[10px] text-slate-400"></span></span>
+            </th>
             <th class="py-2.5 px-3 font-semibold">รุ่น / Serial</th>
-            <th class="py-2.5 px-3 font-semibold">IP</th>
-            <th class="py-2.5 px-3 font-semibold">สถานะ</th>
-            <th class="py-2.5 px-3 font-semibold min-w-[210px]">ระดับหมึก</th>
-            <th class="py-2.5 px-3 font-semibold">สัญญา</th>
+            <th onclick="toggleTableSort('ip')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+              <span class="inline-flex items-center gap-1">IP <span id="sort-th-ip" class="text-[10px] text-slate-400"></span></span>
+            </th>
+            <th onclick="toggleTableSort('status')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+              <span class="inline-flex items-center gap-1">สถานะ <span id="sort-th-status" class="text-[10px] text-slate-400"></span></span>
+            </th>
+            <th onclick="toggleTableSort('ink')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition min-w-[200px]">
+              <span class="inline-flex items-center gap-1">ระดับหมึก <span id="sort-th-ink" class="text-[10px] text-slate-400"></span></span>
+            </th>
+            <th onclick="toggleTableSort('contract')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+              <span class="inline-flex items-center gap-1">สัญญา <span id="sort-th-contract" class="text-[10px] text-slate-400"></span></span>
+            </th>
             <th class="py-2.5 px-3 font-semibold">ผู้ดูแล</th>
             <th class="py-2.5 px-3 font-semibold text-right">จัดการ</th>
           </tr>
