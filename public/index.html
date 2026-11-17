@@ -171,6 +171,22 @@
       </div>
     </section>
 
+    <!-- Active Issues Alert Banner (Visible when any printer has active errors/warnings) -->
+    <section id="active-issues-panel" class="hidden bg-white rounded-xl border border-amber-200/90 p-3.5 shadow-sm space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="flex h-2.5 w-2.5 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+          </span>
+          <h3 class="text-xs font-bold text-slate-900">แจ้งเตือนสถานะเครื่องปริ้นที่พบปัญหาขณะนี้</h3>
+          <span id="active-issues-badge" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-700">0 รายการ</span>
+        </div>
+        <span class="text-[11px] text-slate-400 hidden sm:inline">คัดกรองการแจ้งเตือนตามความเร่งด่วน (Critical / Warning / Info)</span>
+      </div>
+      <div id="active-issues-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+    </section>
+
     <!-- Grouped / Filtered Printers Container -->
     <section id="printers-container" class="space-y-4 hidden"></section>
 
@@ -400,6 +416,50 @@
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">เตือนสัญญา (วัน)</label>
             <input id="set-contract-days" type="number" min="1" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="bell-ring" class="w-4 h-4 text-indigo-600"></i>
+              <span class="text-xs font-semibold text-slate-800">เงื่อนไขการส่งแจ้งเตือน LINE</span>
+            </div>
+            <span class="text-[10px] text-slate-400">เลือกประเภทที่ต้องการให้ส่ง LINE</span>
+          </div>
+          <p class="text-[11px] text-slate-500">ปัญหาที่ไม่ได้ติ๊กถูก จะยังคงแสดงในกล่องแจ้งเตือนบนหน้าเว็บ แต่จะไม่รบกวนส่งแจ้งเตือน LINE</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 pt-1">
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-paper-jam" type="checkbox" checked class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+              <span>🚨 <strong>กระดาษติด</strong> (Paper Jam)</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-no-toner" type="checkbox" checked class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+              <span>💧 <strong>หมึกหมดเกลี้ยง</strong> (0%)</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-hardware-error" type="checkbox" checked class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+              <span>🛠️ <strong>ฮาร์ดแวร์เสีย / เรียกช่าง</strong></span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-low-ink" type="checkbox" checked class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+              <span>💧 <strong>หมึกใกล้หมด</strong></span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-offline" type="checkbox" checked class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+              <span>🔴 <strong>เครื่องออฟไลน์</strong> (Offline)</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-contract" type="checkbox" checked class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+              <span>📋 <strong>สัญญาใกล้หมดอายุ</strong></span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-no-paper" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span>📄 <strong>กระดาษหมด</strong> (Out of Paper)</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-100">
+              <input id="rule-door-tray" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span>🚪 <strong>ฝาเปิด / ถาดกระดาษมีปัญหา</strong></span>
+            </label>
           </div>
         </div>
         <div id="startup-setting-wrap" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">

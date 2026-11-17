@@ -12,11 +12,22 @@ describe('SNMP Parser & Simulator', () => {
     expect(calculateSupplyPercent(50, 0)).toBeNull();
   });
 
-  it('decodes hrPrinterDetectedErrorState bitmask', () => {
-    const flags = decodeErrorStateBitmask(Buffer.from([0xa4]));
+  it('decodes hrPrinterDetectedErrorState bitmask (both byte 0 and byte 1)', () => {
+    // 0xa4 = lowPaper (0x80) | lowToner (0x20) | jammed (0x04)
+    // 0x88 = inputTrayMissing (0x80) | outputFull (0x08)
+    const flags = decodeErrorStateBitmask(Buffer.from([0xa4, 0x88]));
     expect(flags).toContain('lowPaper');
     expect(flags).toContain('lowToner');
     expect(flags).toContain('jammed');
+    expect(flags).toContain('inputTrayMissing');
+    expect(flags).toContain('outputFull');
+  });
+
+  it('decodes 16-bit number bitmask correctly', () => {
+    // byte0: 0x40 (noPaper), byte1: 0x04 (inputTrayEmpty) -> 0x4004
+    const flags = decodeErrorStateBitmask(0x4004);
+    expect(flags).toContain('noPaper');
+    expect(flags).toContain('inputTrayEmpty');
   });
 
   it('returns simulated snapshot when printer.simulator is true', async () => {

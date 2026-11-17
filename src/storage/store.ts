@@ -5,6 +5,7 @@ import {
   AlertRecord,
   AppSettings,
   DailyPrinterStat,
+  DEFAULT_LINE_NOTIFY_RULES,
   DEFAULT_SETTINGS,
   PrinterConfig,
   PrinterSnapshot,
@@ -32,9 +33,17 @@ export class JsonStore {
     try {
       const raw = await fs.readFile(this.filePath, 'utf-8');
       const parsed = JSON.parse(raw) as Partial<StoreData>;
+      const rawSettings: Partial<AppSettings> = parsed.settings ?? {};
       this.data = {
         printers: parsed.printers ?? [],
-        settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
+        settings: {
+          ...DEFAULT_SETTINGS,
+          ...rawSettings,
+          lineNotifyRules: {
+            ...DEFAULT_LINE_NOTIFY_RULES,
+            ...(rawSettings.lineNotifyRules ?? {}),
+          },
+        },
         snapshots: parsed.snapshots ?? {},
         alerts: parsed.alerts ?? [],
         lastAlertTimes: parsed.lastAlertTimes ?? {},

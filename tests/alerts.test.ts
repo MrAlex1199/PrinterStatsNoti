@@ -92,4 +92,44 @@ describe('AlertEngine', () => {
     expect(alert2).toBeNull();
     expect(sendPushMessage).toHaveBeenCalledTimes(1);
   });
+
+  it('sends paper jam alert via LINE but logs out-of-paper as web_only by default', async () => {
+    const engine = new AlertEngine(store, { sendPushMessage });
+
+    // 1. Out of paper (noPaper) -> default rules have noPaper: false -> web_only, NO line message
+    const noPaperSnap: PrinterSnapshot = {
+      printerId: 'p1',
+      status: PrinterStatus.Error,
+      supplies: [{ name: 'Black Toner', color: '#111827', percent: 80, level: 80, maxCapacity: 100 }],
+      trays: [{ name: 'Tray 1', percent: 0, level: 0, maxCapacity: 250 }],
+      errorFlags: ['noPaper'],
+      pageCount: 500,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const alertsNoPaper = await engine.evaluate(printer, noPaperSnap, 1000);
+    expect(alertsNoPaper).toHaveLength(1);
+    expect(alertsNoPaper[0].type).toBe('no_paper');
+    expect(alertsNoPaper[0].deliveryStatus).toBe('web_only');
+    expect(alertsNoPaper[0].severity).toBe('info');
+    expect(sendPushMessage).toHaveBeenCalledTimes(0); // LINE NOT called!
+
+    // 2. Paper jam (jammed) -> critical -> sends LINE notification
+    const jamSnap: PrinterSnapshot = {
+      printerId: 'p1',
+      status: PrinterStatus.Error,
+      supplies: [{ name: 'Black Toner', color: '#111827', percent: 80, level: 80, maxCapacity: 100 }],
+      trays: [{ name: 'Tray 1', percent: 80, level: 200, maxCapacity: 250 }],
+      errorFlags: ['jammed'],
+      pageCount: 500,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const alertsJam = await engine.evaluate(printer, jamSnap, 2000);
+    expect(alertsJam).toHaveLength(1);
+    expect(alertsJam[0].type).toBe('paper_jam');
+    expect(alertsJam[0].deliveryStatus).toBe('sent');
+    expect(alertsJam[0].severity).toBe('critical');
+    expect(sendPushMessage).toHaveBeenCalledTimes(1); // LINE called!
+  });
 });

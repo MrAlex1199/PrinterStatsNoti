@@ -39,10 +39,52 @@ export function generateSimulatedSnapshot(
         { name: 'Yellow Toner', color: '#eab308', percent: 81, level: 81, maxCapacity: 100 },
       ],
       trays: [
-        { name: 'Tray 1 (A4)', percent: 0, level: 0, maxCapacity: 250 },
+        { name: 'Tray 1 (A4)', percent: 50, level: 125, maxCapacity: 250 },
         { name: 'Tray 2 (A4)', percent: 80, level: 200, maxCapacity: 250 },
       ],
-      errorFlags: ['jammed', 'noPaper'],
+      errorFlags: ['jammed'],
+      alertMessages: ['Paper Jam: Open Tray 1 and clear jam'],
+      pageCount: nextPages,
+      updatedAt: now,
+    };
+  }
+
+  if (scenario === 'no_paper') {
+    return {
+      printerId: printer.id,
+      model: 'Simulated Office LaserJet Pro M454dw',
+      status: PrinterStatus.Error,
+      supplies: [
+        { name: 'Black Toner', color: '#1e293b', percent: 72, level: 72, maxCapacity: 100 },
+        { name: 'Cyan Toner', color: '#06b6d4', percent: 65, level: 65, maxCapacity: 100 },
+        { name: 'Magenta Toner', color: '#ec4899', percent: 58, level: 58, maxCapacity: 100 },
+        { name: 'Yellow Toner', color: '#eab308', percent: 81, level: 81, maxCapacity: 100 },
+      ],
+      trays: [
+        { name: 'Tray 1 (A4)', percent: 0, level: 0, maxCapacity: 250 },
+        { name: 'Tray 2 (A4)', percent: 0, level: 0, maxCapacity: 250 },
+      ],
+      errorFlags: ['noPaper', 'inputTrayEmpty'],
+      alertMessages: ['Load Paper into Tray 1'],
+      pageCount: nextPages,
+      updatedAt: now,
+    };
+  }
+
+  if (scenario === 'door_open') {
+    return {
+      printerId: printer.id,
+      model: 'Simulated Office LaserJet Pro M454dw',
+      status: PrinterStatus.Error,
+      supplies: [
+        { name: 'Black Toner', color: '#1e293b', percent: 72, level: 72, maxCapacity: 100 },
+        { name: 'Cyan Toner', color: '#06b6d4', percent: 65, level: 65, maxCapacity: 100 },
+      ],
+      trays: [
+        { name: 'Tray 1 (A4)', percent: 50, level: 125, maxCapacity: 250 },
+      ],
+      errorFlags: ['doorOpen'],
+      alertMessages: ['Front Door is Open'],
       pageCount: nextPages,
       updatedAt: now,
     };

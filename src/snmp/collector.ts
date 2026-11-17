@@ -9,6 +9,7 @@ import {
 import {
   calculateSupplyPercent,
   decodeErrorStateBitmask,
+  inferErrorFlagsFromLevels,
   inferSupplyColor,
   resolvePrinterStatus,
 } from './parser.js';
@@ -26,6 +27,8 @@ const OIDS = {
   prtInputName: '1.3.6.1.2.1.43.8.2.1.13',
   prtInputMaxCap: '1.3.6.1.2.1.43.8.2.1.9',
   prtInputCurrentLevel: '1.3.6.1.2.1.43.8.2.1.10',
+  prtAlertDescription: '1.3.6.1.2.1.43.18.1.1.8',
+  prtConsoleDisplayBufferText: '1.3.6.1.2.1.43.16.5.1.2',
 };
 
 interface SnmpVarbind {
@@ -142,11 +145,22 @@ export async function collectPrinterSnapshot(printer: PrinterConfig): Promise<Pr
     }
 
     // Paper Trays
-    const [trayNames, trayMaxCaps, trayLevels] = await Promise.all([
+    const [trayNames, trayMaxCaps, trayLevels, alertDescs, consoleTexts] = await Promise.all([
       snmpSubtree(session, OIDS.prtInputName).catch(() => []),
       snmpSubtree(session, OIDS.prtInputMaxCap).catch(() => []),
       snmpSubtree(session, OIDS.prtInputCurrentLevel).catch(() => []),
+      snmpSubtree(session, OIDS.prtAlertDescription).catch(() => []),
+      snmpSubtree(session, OIDS.prtConsoleDisplayBufferText).catch(() => []),
     ]);
+
+    const alertMessages: string[] = [];
+    for (const vb of [...alertDescs, ...consoleTexts]) {
+      if (snmp.isVarbindError(vb)) continue;
+      const text = vb.value ? String(vb.value).trim() : '';
+      if (text && !alertMessages.includes(text)) {
+        alertMessages.push(text);
+      }
+    }
 
     const traysMap = new Map<string, { name?: string; max?: number; level?: number }>();
     for (const vb of trayNames) {
@@ -178,13 +192,16 @@ export async function collectPrinterSnapshot(printer: PrinterConfig): Promise<Pr
       });
     }
 
+    const effectiveFlags = inferErrorFlagsFromLevels(errorFlags, supplies, trays);
+
     return {
       printerId: printer.id,
       model,
-      status: resolvePrinterStatus(hrDeviceStatus, hrPrinterStatus, errorFlags),
+      status: resolvePrinterStatus(hrDeviceStatus, hrPrinterStatus, effectiveFlags),
       supplies,
       trays,
-      errorFlags,
+      errorFlags: effectiveFlags,
+      alertMessages: alertMessages.length > 0 ? alertMessages : undefined,
       pageCount,
       updatedAt: new Date().toISOString(),
     };
@@ -195,6 +212,7 @@ export async function collectPrinterSnapshot(printer: PrinterConfig): Promise<Pr
       supplies: [],
       trays: [],
       errorFlags: ['offline'],
+      alertMessages: undefined,
       pageCount: null,
       errorMessage: err instanceof Error ? err.message : String(err),
       updatedAt: new Date().toISOString(),

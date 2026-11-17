@@ -1,6 +1,13 @@
 import crypto from 'node:crypto';
 import { JsonStore } from '../storage/store.js';
-import { AlertRecord, PrinterConfig, PrinterSnapshot, PrinterStatus } from '../types.js';
+import {
+  AlertRecord,
+  AlertSeverity,
+  DEFAULT_LINE_NOTIFY_RULES,
+  PrinterConfig,
+  PrinterSnapshot,
+  PrinterStatus,
+} from '../types.js';
 import { getContractDaysRemaining } from '../utils/contract.js';
 
 export interface AlertNotifier {
@@ -19,7 +26,11 @@ export class AlertEngine {
     dedupKey: string,
     message: string,
     cooldownMinutes: number,
-    nowMs: number
+    nowMs: number,
+    options?: {
+      severity?: AlertSeverity;
+      shouldSendLine?: boolean;
+    }
   ): Promise<AlertRecord | null> {
     const lastTime = this.store.getLastAlertTime(dedupKey);
     const cooldownMs = cooldownMinutes * 60_000;
@@ -27,7 +38,16 @@ export class AlertEngine {
       return null;
     }
 
-    const result = await this.notifier.sendPushMessage(message);
+    const shouldSendLine = options?.shouldSendLine !== false;
+    let deliveryStatus: AlertRecord['deliveryStatus'] = 'web_only';
+    let errorDetail: string | undefined;
+
+    if (shouldSendLine) {
+      const result = await this.notifier.sendPushMessage(message);
+      deliveryStatus = result.ok ? 'sent' : result.error?.includes('not configured') ? 'skipped' : 'failed';
+      errorDetail = result.error;
+    }
+
     await this.store.setLastAlertTime(dedupKey, nowMs);
 
     const record: AlertRecord = {
@@ -35,9 +55,10 @@ export class AlertEngine {
       printerId: printer.id,
       printerName: printer.name,
       type,
+      severity: options?.severity ?? 'warning',
       message,
-      deliveryStatus: result.ok ? 'sent' : result.error?.includes('not configured') ? 'skipped' : 'failed',
-      errorDetail: result.error,
+      deliveryStatus,
+      errorDetail,
       createdAt: new Date(nowMs).toISOString(),
     };
     await this.store.addAlert(record);
@@ -61,6 +82,7 @@ export class AlertEngine {
     nowMs: number = Date.now()
   ): Promise<AlertRecord | null> {
     const settings = this.store.getSettings();
+    const rules = settings.lineNotifyRules ?? DEFAULT_LINE_NOTIFY_RULES;
     const days = getContractDaysRemaining(printer.asset?.contractEndDate, new Date(nowMs));
     const key = `${printer.id}:contractExpiring`;
 
@@ -82,7 +104,11 @@ export class AlertEngine {
       key,
       `📋 [${printer.name}] ${statusText} (สิ้นสุด ${printer.asset?.contractEndDate})${this.formatAssetSuffix(printer)}`,
       1440, // 24 hours cooldown
-      nowMs
+      nowMs,
+      {
+        severity: 'warning',
+        shouldSendLine: rules.contractExpiring !== false,
+      }
     );
   }
 
@@ -92,6 +118,7 @@ export class AlertEngine {
     nowMs: number = Date.now()
   ): Promise<AlertRecord[]> {
     const settings = this.store.getSettings();
+    const rules = settings.lineNotifyRules ?? DEFAULT_LINE_NOTIFY_RULES;
     const emitted: AlertRecord[] = [];
     const todayStr = new Date(nowMs).toISOString().slice(0, 10);
 
@@ -108,7 +135,11 @@ export class AlertEngine {
         offlineKey,
         `🔴 [${printer.name}] เครื่องปริ้นออฟไลน์ / ไม่ตอบสนอง (${printer.ip})${this.formatAssetSuffix(printer)}`,
         30,
-        nowMs
+        nowMs,
+        {
+          severity: 'warning',
+          shouldSendLine: rules.offline !== false,
+        }
       );
       if (rec) emitted.push(rec);
       return emitted;
@@ -116,67 +147,131 @@ export class AlertEngine {
       await this.store.clearLastAlertTime(offlineKey);
     }
 
-    // 2. Paper jam check
+    // 2. Paper jam check (Critical)
     const jamKey = `${printer.id}:jammed`;
     if (snapshot.errorFlags.includes('jammed')) {
       const rec = await this.dispatchAlert(
         printer,
         'paper_jam',
         jamKey,
-        `⚠️ [${printer.name}] กระดาษติด (Paper Jam)! กรุณาตรวจสอบเครื่องปริ้น${this.formatAssetSuffix(printer)}`,
+        `🚨 [${printer.name}] กระดาษติด (Paper Jam)! กรุณาเปิดฝาตรวจสอบและดึงกระดาษออก${this.formatAssetSuffix(printer)}`,
         30,
-        nowMs
+        nowMs,
+        {
+          severity: 'critical',
+          shouldSendLine: rules.paperJam !== false,
+        }
       );
       if (rec) emitted.push(rec);
     } else {
       await this.store.clearLastAlertTime(jamKey);
     }
 
-    // 3. Out of paper check
-    const noPaperKey = `${printer.id}:noPaper`;
-    if (snapshot.errorFlags.includes('noPaper')) {
+    // 3. No Toner check (Critical)
+    const emptySupplies = snapshot.supplies.filter(
+      (s) => s.percent !== null && s.percent <= 0 && !s.name.toLowerCase().includes('waste')
+    );
+    const noTonerKey = `${printer.id}:noToner`;
+    if (snapshot.errorFlags.includes('noToner') || emptySupplies.length > 0) {
+      const details =
+        emptySupplies.length > 0
+          ? emptySupplies.map((s) => s.name).join(', ')
+          : 'ตลับหมึกหมดเกลี้ยง';
       const rec = await this.dispatchAlert(
         printer,
-        'no_paper',
-        noPaperKey,
-        `📄 [${printer.name}] กระดาษหมด (Out of Paper)! กรุณาเติมกระดาษ${this.formatAssetSuffix(printer)}`,
+        'no_toner',
+        noTonerKey,
+        `💧 [${printer.name}] หมึกหมดเกลี้ยง (0%) ไม่สามารถพิมพ์ได้: ${details}${this.formatAssetSuffix(printer)}`,
         30,
-        nowMs
+        nowMs,
+        {
+          severity: 'critical',
+          shouldSendLine: rules.noToner !== false,
+        }
       );
       if (rec) emitted.push(rec);
     } else {
-      await this.store.clearLastAlertTime(noPaperKey);
+      await this.store.clearLastAlertTime(noTonerKey);
     }
 
-    // 4. Hardware error (doorOpen / serviceRequested)
-    const hwKey = `${printer.id}:hardware`;
-    if (
-      snapshot.errorFlags.includes('doorOpen') ||
-      snapshot.errorFlags.includes('serviceRequested')
-    ) {
-      const reasons = [
-        snapshot.errorFlags.includes('doorOpen') ? 'ฝาเครื่องเปิดอยู่' : '',
-        snapshot.errorFlags.includes('serviceRequested') ? 'ต้องการการซ่อมบำรุง' : '',
-      ]
-        .filter(Boolean)
-        .join(', ');
+    // 4. Hardware Service Required (Critical)
+    const hwKey = `${printer.id}:serviceRequested`;
+    if (snapshot.errorFlags.includes('serviceRequested')) {
       const rec = await this.dispatchAlert(
         printer,
         'hardware_error',
         hwKey,
-        `🛠️ [${printer.name}] พบปัญหาฮาร์ดแวร์: ${reasons}${this.formatAssetSuffix(printer)}`,
+        `🛠️ [${printer.name}] เครื่องแจ้งเตือนต้องการการซ่อมบำรุง / เรียกช่างบริการ (Service Requested)${this.formatAssetSuffix(printer)}`,
         30,
-        nowMs
+        nowMs,
+        {
+          severity: 'critical',
+          shouldSendLine: rules.hardwareError !== false,
+        }
       );
       if (rec) emitted.push(rec);
     } else {
       await this.store.clearLastAlertTime(hwKey);
     }
 
-    // 5. Low ink/toner check
+    // 5. Out of paper check (Info - default web_only)
+    const noPaperKey = `${printer.id}:noPaper`;
+    if (
+      snapshot.errorFlags.includes('noPaper') ||
+      snapshot.errorFlags.includes('inputTrayEmpty')
+    ) {
+      const rec = await this.dispatchAlert(
+        printer,
+        'no_paper',
+        noPaperKey,
+        `📄 [${printer.name}] กระดาษหมด (Out of Paper)! กรุณาเติมกระดาษที่ถาด${this.formatAssetSuffix(printer)}`,
+        30,
+        nowMs,
+        {
+          severity: 'info',
+          shouldSendLine: Boolean(rules.noPaper),
+        }
+      );
+      if (rec) emitted.push(rec);
+    } else {
+      await this.store.clearLastAlertTime(noPaperKey);
+    }
+
+    // 6. Door open / Tray issue (Info - default web_only)
+    const doorTrayFlags = snapshot.errorFlags.filter((f) =>
+      ['doorOpen', 'inputTrayMissing', 'outputTrayMissing', 'outputFull'].includes(f)
+    );
+    const doorTrayKey = `${printer.id}:doorTray`;
+    if (doorTrayFlags.length > 0) {
+      const reasons = [
+        snapshot.errorFlags.includes('doorOpen') ? 'ฝาเครื่องเปิดอยู่' : '',
+        snapshot.errorFlags.includes('inputTrayMissing') ? 'ถาดใส่กระดาษหลุด/ไม่เข้าที่' : '',
+        snapshot.errorFlags.includes('outputTrayMissing') ? 'ถาดรับกระดาษไม่ถูกใส่' : '',
+        snapshot.errorFlags.includes('outputFull') ? 'ถาดรับกระดาษเต็ม' : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
+      const rec = await this.dispatchAlert(
+        printer,
+        'door_open',
+        doorTrayKey,
+        `🚪 [${printer.name}] ตรวจสอบตัวเครื่อง: ${reasons}${this.formatAssetSuffix(printer)}`,
+        30,
+        nowMs,
+        {
+          severity: 'info',
+          shouldSendLine: Boolean(rules.doorOrTray),
+        }
+      );
+      if (rec) emitted.push(rec);
+    } else {
+      await this.store.clearLastAlertTime(doorTrayKey);
+    }
+
+    // 7. Low ink/toner check (Warning)
     const threshold = settings.lowInkThresholdPercent;
     const lowSupplies = snapshot.supplies.filter(
-      (s) => s.percent !== null && s.percent <= threshold
+      (s) => s.percent !== null && s.percent > 0 && s.percent <= threshold
     );
     const lowInkKey = `${printer.id}:lowInk`;
     if (lowSupplies.length > 0) {
@@ -187,7 +282,11 @@ export class AlertEngine {
         lowInkKey,
         `💧 [${printer.name}] หมึกใกล้หมด (<= ${threshold}%): ${details}${this.formatAssetSuffix(printer)}`,
         settings.alertCooldownMinutes,
-        nowMs
+        nowMs,
+        {
+          severity: 'warning',
+          shouldSendLine: rules.lowInk !== false,
+        }
       );
       if (rec) emitted.push(rec);
     } else {

@@ -166,6 +166,12 @@ export function createApp(
     if (typeof body.lineTargetId === 'string') {
       patch.lineTargetId = body.lineTargetId.trim();
     }
+    if (typeof body.lineNotifyRules === 'object' && body.lineNotifyRules !== null) {
+      patch.lineNotifyRules = {
+        ...store.getSettings().lineNotifyRules,
+        ...(body.lineNotifyRules as Record<string, boolean>),
+      };
+    }
 
     const updated = await store.updateSettings(patch);
     scheduler.reschedule();
