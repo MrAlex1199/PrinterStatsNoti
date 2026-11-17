@@ -44,37 +44,37 @@ function computeSmartStatusBadge(p) {
   const status = snap?.status || 'offline';
 
   if (flags.includes('jammed')) {
-    return { label: '🚨 กระดาษติด', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical' };
+    return { label: '🚨 กระดาษติด', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical', primaryFlag: 'jammed' };
   }
   if (flags.includes('noToner')) {
-    return { label: '💧 หมึกหมดเกลี้ยง', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical' };
+    return { label: '💧 หมึกหมดเกลี้ยง', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical', primaryFlag: 'noToner' };
   }
   if (flags.includes('serviceRequested')) {
-    return { label: '🛠️ เรียกช่างบริการ', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical' };
+    return { label: '🛠️ เรียกช่างบริการ', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical', primaryFlag: 'serviceRequested' };
   }
   if (status === 'offline' || flags.includes('offline')) {
-    return { label: '🔴 ออฟไลน์', cls: 'bg-slate-200 text-slate-700', dot: 'bg-slate-400', severity: 'warning' };
+    return { label: '🔴 ออฟไลน์', cls: 'bg-slate-200 text-slate-700', dot: 'bg-slate-400', severity: 'warning', primaryFlag: 'offline' };
   }
   if (flags.includes('doorOpen')) {
-    return { label: '🚪 ฝาเครื่องเปิด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info' };
+    return { label: '🚪 ฝาเครื่องเปิด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'doorOpen' };
   }
   if (flags.includes('noPaper') || flags.includes('inputTrayEmpty')) {
-    return { label: '📄 กระดาษหมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info' };
+    return { label: '📄 กระดาษหมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: flags.includes('noPaper') ? 'noPaper' : 'inputTrayEmpty' };
   }
   if (flags.includes('outputFull')) {
-    return { label: '📥 ถาดรับเต็ม', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info' };
+    return { label: '📥 ถาดรับเต็ม', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'outputFull' };
   }
   if (flags.includes('inputTrayMissing') || flags.includes('outputTrayMissing') || flags.includes('markerSupplyMissing')) {
-    return { label: '⚠️ อุปกรณ์ไม่เข้าที่', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info' };
+    return { label: '⚠️ อุปกรณ์ไม่เข้าที่', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: flags.find((f) => ['inputTrayMissing', 'outputTrayMissing', 'markerSupplyMissing'].includes(f)) };
   }
   if (flags.includes('lowToner')) {
-    return { label: '💧 หมึกใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning' };
+    return { label: '💧 หมึกใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning', primaryFlag: 'lowToner' };
   }
   if (flags.includes('lowPaper')) {
-    return { label: '📄 กระดาษใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning' };
+    return { label: '📄 กระดาษใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning', primaryFlag: 'lowPaper' };
   }
   if (flags.includes('overduePreventMaint')) {
-    return { label: '⏳ ถึงรอบตรวจเช็ค', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info' };
+    return { label: '⏳ ถึงรอบตรวจเช็ค', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'overduePreventMaint' };
   }
   if (status === 'warning') {
     return { label: '⚠️ แจ้งเตือน', cls: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', severity: 'warning' };
@@ -304,33 +304,38 @@ function renderActiveIssuesPanel(data) {
       const p = item.printer;
       const b = item.badgeInfo;
       const isCritical = b.severity === 'critical';
-      const borderCls = isCritical ? 'border-rose-200 bg-rose-50/50' : 'border-amber-200 bg-amber-50/50';
+      const rowBg = isCritical ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'bg-white hover:bg-amber-50/50';
       const lineTag = item.lineActive
-        ? '<span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-semibold"><i data-lucide="check" class="w-3 h-3"></i>ส่ง LINE</span>'
-        : '<span class="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-200/90 px-1.5 py-0.5 rounded font-medium" title="แสดงเฉพาะบนเว็บ ไม่รบกวนส่ง LINE">เฉพาะบนเว็บ</span>';
+        ? '<span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-semibold whitespace-nowrap"><i data-lucide="check" class="w-3 h-3"></i>ส่ง LINE</span>'
+        : '<span class="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium whitespace-nowrap" title="แสดงเฉพาะบนเว็บ ไม่รบกวนส่ง LINE">เฉพาะบนเว็บ</span>';
 
       return `
-        <div onclick="openDetailModal('${p.id}')" class="p-2.5 rounded-lg border ${borderCls} flex flex-col justify-between gap-1.5 cursor-pointer hover:shadow-xs transition">
-          <div class="flex items-start justify-between gap-1.5">
-            <div class="min-w-0">
-              <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full ${b.dot} shrink-0"></span>
-                <span class="font-bold text-xs text-slate-900 truncate" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-              </div>
-              <p class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(p.asset?.location || p.ip)}</p>
-            </div>
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${b.cls}">${b.label}</span>
+        <div onclick="openDetailModal('${p.id}')" class="px-3.5 py-2 ${rowBg} flex flex-wrap items-center justify-between gap-2 cursor-pointer transition">
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <span class="w-2 h-2 rounded-full ${b.dot} shrink-0"></span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 whitespace-nowrap ${b.cls}">${b.label}</span>
+            <span class="font-bold text-xs text-slate-900 truncate max-w-[260px]" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+            <span class="text-[11px] font-mono text-slate-400 whitespace-nowrap">${escapeHtml(p.ip)}</span>
+            <span class="text-[11px] text-slate-600 hidden sm:inline">• ${escapeHtml(item.reasonText)}</span>
+            ${item.alertMsg ? `<span class="text-[10px] text-amber-800 font-mono bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 truncate max-w-[220px]">${escapeHtml(item.alertMsg)}</span>` : ''}
           </div>
-          <div class="text-[11px] font-medium text-slate-700">${escapeHtml(item.reasonText)}</div>
-          ${item.alertMsg ? `<div class="text-[10px] text-slate-500 font-mono truncate bg-white/70 px-1.5 py-0.5 rounded border border-slate-200/60">${escapeHtml(item.alertMsg)}</div>` : ''}
-          <div class="flex items-center justify-between pt-1 border-t border-slate-200/50 text-[10px]">
-            <span class="text-slate-400 font-mono">${escapeHtml(p.ip)}</span>
+          <div class="flex items-center gap-2 shrink-0 ml-auto">
             ${lineTag}
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
           </div>
         </div>
       `;
     })
     .join('');
+}
+
+let activeIssuesCollapsed = false;
+function toggleActiveIssuesPanel() {
+  activeIssuesCollapsed = !activeIssuesCollapsed;
+  const list = document.getElementById('active-issues-list');
+  const label = document.getElementById('toggle-issues-label');
+  if (list) list.classList.toggle('hidden', activeIssuesCollapsed);
+  if (label) label.textContent = activeIssuesCollapsed ? 'แสดงรายการ' : 'ซ่อน';
 }
 
 function getPrinterStatusRank(p) {
@@ -438,14 +443,18 @@ function updateSortUi() {
 function updateViewButtonsUi() {
   const cardsBtn = document.getElementById('view-cards');
   const tableBtn = document.getElementById('view-table');
+  const groupByEl = document.getElementById('filter-groupby');
   if (cardsBtn && tableBtn) {
     if (currentView === 'cards') {
-      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
-      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm whitespace-nowrap';
+      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap';
     } else {
-      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm';
-      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900';
+      tableBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm whitespace-nowrap';
+      cardsBtn.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap';
     }
+  }
+  if (groupByEl) {
+    groupByEl.classList.toggle('hidden', currentView === 'table');
   }
 }
 
@@ -506,12 +515,12 @@ function renderContractPill(p) {
   const alertDays = currentData?.settings?.contractExpiryAlertDays ?? 30;
   if (typeof days !== 'number') return '';
   if (days < 0) {
-    return `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-700">หมดสัญญา</span>`;
+    return `<span class="whitespace-nowrap inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-700">หมดสัญญา</span>`;
   }
   if (days <= alertDays) {
-    return `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">เหลือ ${days} วัน</span>`;
+    return `<span class="whitespace-nowrap inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">เหลือ ${days} วัน</span>`;
   }
-  return `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">เหลือ ${days} วัน</span>`;
+  return `<span class="whitespace-nowrap inline-block px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">เหลือ ${days} วัน</span>`;
 }
 
 function renderPrintersList() {
@@ -592,7 +601,7 @@ function renderPrintersList() {
     container.classList.add('hidden');
     tableWrap.classList.remove('hidden');
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้นที่ตรงกับเงื่อนไข</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">ไม่พบข้อมูลเครื่องปริ้นที่ตรงกับเงื่อนไข</td></tr>`;
     } else {
       tbody.innerHTML = filtered.map(renderPrinterRow).join('');
     }
@@ -644,10 +653,11 @@ function renderCompactCard(p, animIndex = -1) {
     inkStripHtml = `<div class="text-[11px] text-slate-400">ไม่มีข้อมูลหมึก</div>`;
   }
 
+  const secondaryCardFlags = (snap?.errorFlags || []).filter((f) => f !== badge.primaryFlag);
   const flagsHtml =
-    snap?.errorFlags?.length > 0
-      ? `<div class="flex flex-wrap gap-1">${snap.errorFlags
-          .map((f) => `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
+    secondaryCardFlags.length > 0
+      ? `<div class="flex flex-wrap gap-1">${secondaryCardFlags
+          .map((f) => `<span class="whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
           .join('')}</div>`
       : '';
 
@@ -694,17 +704,18 @@ function renderCompactCard(p, animIndex = -1) {
 function renderTableSupplies(p) {
   const isUsb = p.connectionType === 'usb';
   if (isUsb) {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
+    return `<span class="whitespace-nowrap inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
       <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>USB
     </span>`;
   }
   const snap = p.snapshot;
   if (!snap || !snap.supplies || snap.supplies.length === 0) {
-    return `<span class="text-[11px] text-slate-400 italic">ไม่มีข้อมูลหมึก</span>`;
+    return `<span class="text-[11px] text-slate-400 italic whitespace-nowrap">ไม่มีข้อมูลหมึก</span>`;
   }
   const threshold = currentData?.settings?.lowInkThresholdPercent ?? 15;
+  const wrapCls = snap.supplies.length === 4 ? 'grid grid-cols-2 gap-1 w-fit' : 'flex flex-wrap items-center gap-1';
   return `
-    <div class="flex flex-wrap items-center gap-1.5 max-w-[320px]">
+    <div class="${wrapCls}">
       ${snap.supplies
         .map((s) => {
           const pct = s.percent ?? 0;
@@ -715,9 +726,11 @@ function renderTableSupplies(p) {
             ? 'bg-rose-50 border-rose-300 text-rose-700 font-semibold ring-1 ring-rose-200'
             : 'bg-slate-50 border-slate-200/90 text-slate-700';
           return `
-            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] select-none ${chipCls}" title="${escapeHtml(s.name)}: ${s.percent !== null ? `${pct}%` : 'N/A'}">
-              <span class="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300 shadow-xs" style="background-color: ${color}"></span>
-              <span class="truncate max-w-[65px] font-medium">${escapeHtml(shortName)}</span>
+            <span class="whitespace-nowrap inline-flex items-center justify-between gap-1.5 px-2 py-0.5 rounded-md border text-[11px] select-none ${chipCls}" title="${escapeHtml(s.name)}: ${s.percent !== null ? `${pct}%` : 'N/A'}">
+              <span class="inline-flex items-center gap-1 min-w-0">
+                <span class="w-2 h-2 rounded-full shrink-0 border border-slate-300" style="background-color: ${color}"></span>
+                <span class="truncate max-w-[60px] font-medium">${escapeHtml(shortName)}</span>
+              </span>
               <span class="font-mono text-[10px] ${isLow ? 'text-rose-700 font-bold' : 'text-slate-800 font-semibold'}">${s.percent !== null ? `${pct}%` : '-'}</span>
             </span>
           `;
@@ -729,42 +742,59 @@ function renderTableSupplies(p) {
 
 function renderPrinterRow(p) {
   const snap = p.snapshot;
-  const isUsb = p.connectionType === 'usb';
   const badge = computeSmartStatusBadge(p);
   const a = p.asset || {};
   const alertMsg = snap?.alertMessages?.length ? snap.alertMessages[0] : '';
+  const brand = detectBrand(p);
+  const showLocation = a.location && a.location.trim() !== p.name.trim();
+
+  // Only show secondary error flags that differ from the primary smart badge
+  const secondaryFlags = (snap?.errorFlags || []).filter((f) => f !== badge.primaryFlag);
   const flagsHtml =
-    snap?.errorFlags?.length > 0
-      ? `<div class="mt-1 flex flex-wrap gap-1">${snap.errorFlags
-          .map((f) => `<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
+    secondaryFlags.length > 0
+      ? `<div class="mt-1 flex flex-wrap gap-1">${secondaryFlags
+          .map((f) => `<span class="whitespace-nowrap px-1.5 py-0.2 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">${errorFlagLabels[f] || f}</span>`)
           .join('')}</div>`
       : '';
 
   return `
     <tr class="hover:bg-slate-50 cursor-pointer" onclick="openDetailModal('${p.id}')">
-      <td class="py-2.5 px-3 font-medium text-slate-700">${escapeHtml(detectBrand(p))}</td>
       <td class="py-2.5 px-3">
         <div class="font-semibold text-slate-900">${escapeHtml(p.name)}</div>
-        ${a.location ? `<div class="text-[11px] text-slate-500">${escapeHtml(a.location)}</div>` : ''}
+        ${showLocation ? `<div class="text-[11px] text-slate-500">${escapeHtml(a.location)}</div>` : ''}
       </td>
       <td class="py-2.5 px-3">
-        <div>${escapeHtml(a.modelName || snap?.model || '-')}</div>
-        <div class="text-[11px] font-mono text-slate-400">${escapeHtml(a.serialNumber || '')}</div>
-        ${alertMsg ? `<div class="text-[10px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 font-mono mt-0.5 max-w-[200px] truncate" title="${escapeHtml(alertMsg)}">${escapeHtml(alertMsg)}</div>` : ''}
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="whitespace-nowrap px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">${escapeHtml(brand)}</span>
+          <span class="text-slate-800 font-medium">${escapeHtml(a.modelName || snap?.model || '-')}</span>
+        </div>
+        ${a.serialNumber ? `<div class="text-[11px] font-mono text-slate-400 mt-0.5">${escapeHtml(a.serialNumber)}</div>` : ''}
+        ${alertMsg ? `<div class="text-[10px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 font-mono mt-0.5 max-w-[220px] truncate" title="${escapeHtml(alertMsg)}">${escapeHtml(alertMsg)}</div>` : ''}
       </td>
-      <td class="py-2.5 px-3 font-mono text-slate-700">${escapeHtml(p.ip)}</td>
-      <td class="py-2.5 px-3">
-        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge.cls}">${badge.label}</span>
+      <td class="py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">${escapeHtml(p.ip)}</td>
+      <td class="py-2.5 px-3 whitespace-nowrap">
+        <span class="whitespace-nowrap inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${badge.cls}">${badge.label}</span>
         ${flagsHtml}
       </td>
       <td class="py-2.5 px-3">
         ${renderTableSupplies(p)}
       </td>
-      <td class="py-2.5 px-3">${escapeHtml(a.contractNumber || '-')} ${renderContractPill(p)}</td>
-      <td class="py-2.5 px-3 text-slate-600">${escapeHtml(a.vendorNote || '-')}</td>
-      <td class="py-2.5 px-3 text-right space-x-2" onclick="event.stopPropagation()">
-        <button onclick="openEditPrinter('${p.id}')" class="text-indigo-600 hover:underline font-medium">แก้ไข</button>
-        <button onclick="deletePrinter('${p.id}')" class="text-rose-500 hover:underline font-medium">ลบ</button>
+      <td class="py-2.5 px-3 whitespace-nowrap">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-mono">${escapeHtml(a.contractNumber || '-')}</span>
+          ${renderContractPill(p)}
+        </div>
+      </td>
+      <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap max-w-[140px] truncate" title="${escapeHtml(a.vendorNote || '-')}">${escapeHtml(a.vendorNote || '-')}</td>
+      <td class="py-2.5 px-3 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+        <div class="inline-flex items-center justify-end gap-1">
+          <button onclick="openEditPrinter('${p.id}')" title="แก้ไข" class="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 transition">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button onclick="deletePrinter('${p.id}')" title="ลบ" class="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </td>
     </tr>
   `;

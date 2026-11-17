@@ -107,39 +107,48 @@
   </header>
 
   <main class="max-w-[1440px] mx-auto px-4 py-4 space-y-4">
-    <!-- Compact KPI Bar + Filter Toolbar -->
-    <section class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-      <!-- 4 Compact KPI Buttons (Click to filter) -->
-      <div class="flex flex-wrap items-center gap-2">
-        <button id="kpi-btn-all" type="button" onclick="setKpiFilter('all')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:bg-slate-100 cursor-pointer transition select-none">
-          <span class="text-[11px] text-slate-500 font-medium">ทั้งหมด</span>
-          <span id="stat-total" class="text-sm font-bold text-slate-900">0</span>
-        </button>
-        <button id="kpi-btn-online" type="button" onclick="setKpiFilter('online')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 hover:bg-emerald-100/70 cursor-pointer transition select-none">
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span class="text-[11px] text-emerald-700 font-medium">พร้อมใช้</span>
-          <span id="stat-online" class="text-sm font-bold text-emerald-700">0</span>
-        </button>
-        <button id="kpi-btn-issues" type="button" onclick="setKpiFilter('issues')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-200/70 hover:bg-amber-100/70 cursor-pointer transition select-none">
-          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-          <span class="text-[11px] text-amber-800 font-medium">แจ้งเตือน/ปัญหา</span>
-          <span id="stat-issues" class="text-sm font-bold text-amber-800">0</span>
-        </button>
-        <button id="kpi-btn-expiring" type="button" onclick="setKpiFilter('expiring')" class="kpi-pill flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50/70 border border-rose-200/70 hover:bg-rose-100/70 cursor-pointer transition select-none">
-          <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-rose-600"></i>
-          <span class="text-[11px] text-rose-700 font-medium">สัญญาใกล้หมด</span>
-          <span id="stat-expiring" class="text-sm font-bold text-rose-700">0</span>
-        </button>
-        <span id="filter-count-badge" class="hidden sm:inline text-xs text-slate-500 ml-1"></span>
+    <!-- Compact KPI Bar + Filter Toolbar (2 Clean Rows) -->
+    <section class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm space-y-2.5">
+      <!-- Row 1: 4 KPI Filter Pills (Left) + Count & View Switcher (Right) -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="kpi-btn-all" type="button" onclick="setKpiFilter('all')" class="kpi-pill whitespace-nowrap flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:bg-slate-100 cursor-pointer transition select-none">
+            <span class="text-[11px] text-slate-500 font-medium">ทั้งหมด</span>
+            <span id="stat-total" class="text-sm font-bold text-slate-900">0</span>
+          </button>
+          <button id="kpi-btn-online" type="button" onclick="setKpiFilter('online')" class="kpi-pill whitespace-nowrap flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 hover:bg-emerald-100/70 cursor-pointer transition select-none">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+            <span class="text-[11px] text-emerald-700 font-medium">พร้อมใช้</span>
+            <span id="stat-online" class="text-sm font-bold text-emerald-700">0</span>
+          </button>
+          <button id="kpi-btn-issues" type="button" onclick="setKpiFilter('issues')" class="kpi-pill whitespace-nowrap flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50/70 border border-amber-200/70 hover:bg-amber-100/70 cursor-pointer transition select-none">
+            <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+            <span class="text-[11px] text-amber-800 font-medium">แจ้งเตือน/ปัญหา</span>
+            <span id="stat-issues" class="text-sm font-bold text-amber-800">0</span>
+          </button>
+          <button id="kpi-btn-expiring" type="button" onclick="setKpiFilter('expiring')" class="kpi-pill whitespace-nowrap flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50/70 border border-rose-200/70 hover:bg-rose-100/70 cursor-pointer transition select-none">
+            <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
+            <span class="text-[11px] text-rose-700 font-medium">สัญญาใกล้หมด</span>
+            <span id="stat-expiring" class="text-sm font-bold text-rose-700">0</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2.5 ml-auto">
+          <span id="filter-count-badge" class="hidden sm:inline text-xs text-slate-500 whitespace-nowrap"></span>
+          <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
+            <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">การ์ด</button>
+            <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm whitespace-nowrap">ตาราง</button>
+          </div>
+        </div>
       </div>
 
-      <!-- Search, Brand/Vendor Filters, GroupBy, Sort & View Switcher -->
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="relative">
+      <!-- Row 2: Search + Filters + Sort -->
+      <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+        <div class="relative flex-1 min-w-[200px]">
           <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
-          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs w-44 sm:w-48 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
+          <input id="filter-search" type="text" placeholder="ค้นหาจุดตั้ง, รุ่น, SN, IP..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white" />
         </div>
-        <select id="filter-groupby" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-medium">
+        <select id="filter-groupby" class="hidden px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 font-medium">
           <option value="brand">จัดกลุ่ม: ยี่ห้อ</option>
           <option value="location">จัดกลุ่ม: จุดที่ตั้ง</option>
           <option value="status">จัดกลุ่ม: สถานะ</option>
@@ -154,7 +163,7 @@
             <option value="brand">เรียง: ยี่ห้อ (A-Z)</option>
             <option value="ip">เรียง: หมายเลข IP</option>
           </select>
-          <button id="btn-sort-dir" type="button" title="สลับทิศทางการเรียงลำดับ" class="inline-flex items-center justify-center p-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 hover:bg-slate-100 text-slate-600 transition">
+          <button id="btn-sort-dir" type="button" title="สลับทิศทางการเรียงลำดับ" class="inline-flex items-center justify-center p-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 hover:bg-slate-100 text-slate-600 transition shrink-0">
             <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -164,58 +173,58 @@
         <select id="filter-vendor" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
           <option value="">ทุกผู้ให้บริการ</option>
         </select>
-        <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-          <button id="view-cards" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900">การ์ด</button>
-          <button id="view-table" type="button" class="px-2.5 py-1 rounded-md text-xs font-medium bg-white text-indigo-600 shadow-sm">ตาราง</button>
-        </div>
       </div>
     </section>
 
-    <!-- Active Issues Alert Banner (Visible when any printer has active errors/warnings) -->
-    <section id="active-issues-panel" class="hidden bg-white rounded-xl border border-amber-200/90 p-3.5 shadow-sm space-y-2.5">
-      <div class="flex items-center justify-between">
+    <!-- Active Issues Alert Banner (Compact Collapsible Horizontal Strip) -->
+    <section id="active-issues-panel" class="hidden bg-white rounded-xl border border-amber-200/90 shadow-sm overflow-hidden">
+      <div class="px-3.5 py-2 bg-amber-50/50 border-b border-amber-100/80 flex items-center justify-between gap-2 cursor-pointer select-none" onclick="toggleActiveIssuesPanel()">
         <div class="flex items-center gap-2">
-          <span class="flex h-2.5 w-2.5 relative">
+          <span class="flex h-2 w-2 relative shrink-0">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
           </span>
           <h3 class="text-xs font-bold text-slate-900">แจ้งเตือนสถานะเครื่องปริ้นที่พบปัญหาขณะนี้</h3>
-          <span id="active-issues-badge" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-700">0 รายการ</span>
+          <span id="active-issues-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700 whitespace-nowrap">0 เครื่อง</span>
         </div>
-        <span class="text-[11px] text-slate-400 hidden sm:inline">คัดกรองการแจ้งเตือนตามความเร่งด่วน (Critical / Warning / Info)</span>
+        <div class="flex items-center gap-2 text-[11px] text-slate-500">
+          <span class="hidden sm:inline">เรียงตามความเร่งด่วน</span>
+          <button id="btn-toggle-issues" type="button" class="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-200 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-medium">
+            <span id="toggle-issues-label">ซ่อน</span>
+          </button>
+        </div>
       </div>
-      <div id="active-issues-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+      <div id="active-issues-list" class="divide-y divide-slate-100"></div>
     </section>
 
     <!-- Grouped / Filtered Printers Container -->
     <section id="printers-container" class="space-y-4 hidden"></section>
 
-    <!-- Compact Table View (Default View) -->
+    <!-- Compact Table View (Default View - 8 Clean Columns) -->
     <section id="printers-table-wrap" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
       <table class="w-full text-left border-collapse text-xs">
         <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
           <tr>
-            <th onclick="toggleTableSort('brand')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
-              <span class="inline-flex items-center gap-1">ยี่ห้อ <span id="sort-th-brand" class="text-[10px] text-slate-400"></span></span>
-            </th>
-            <th onclick="toggleTableSort('name')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+            <th onclick="toggleTableSort('name')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
               <span class="inline-flex items-center gap-1">จุดที่ตั้ง / ชื่อ <span id="sort-th-name" class="text-[10px] text-slate-400"></span></span>
             </th>
-            <th class="py-2.5 px-3 font-semibold">รุ่น / Serial</th>
-            <th onclick="toggleTableSort('ip')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+            <th onclick="toggleTableSort('brand')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
+              <span class="inline-flex items-center gap-1">ยี่ห้อ / รุ่น / Serial <span id="sort-th-brand" class="text-[10px] text-slate-400"></span></span>
+            </th>
+            <th onclick="toggleTableSort('ip')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
               <span class="inline-flex items-center gap-1">IP <span id="sort-th-ip" class="text-[10px] text-slate-400"></span></span>
             </th>
-            <th onclick="toggleTableSort('status')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+            <th onclick="toggleTableSort('status')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
               <span class="inline-flex items-center gap-1">สถานะ <span id="sort-th-status" class="text-[10px] text-slate-400"></span></span>
             </th>
-            <th onclick="toggleTableSort('ink')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition min-w-[200px]">
+            <th onclick="toggleTableSort('ink')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
               <span class="inline-flex items-center gap-1">ระดับหมึก <span id="sort-th-ink" class="text-[10px] text-slate-400"></span></span>
             </th>
-            <th onclick="toggleTableSort('contract')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition">
+            <th onclick="toggleTableSort('contract')" class="py-2.5 px-3 font-semibold cursor-pointer hover:bg-slate-100 select-none transition whitespace-nowrap">
               <span class="inline-flex items-center gap-1">สัญญา <span id="sort-th-contract" class="text-[10px] text-slate-400"></span></span>
             </th>
-            <th class="py-2.5 px-3 font-semibold">ผู้ดูแล</th>
-            <th class="py-2.5 px-3 font-semibold text-right">จัดการ</th>
+            <th class="py-2.5 px-3 font-semibold whitespace-nowrap">ผู้ดูแล</th>
+            <th class="py-2.5 px-3 font-semibold text-right whitespace-nowrap">จัดการ</th>
           </tr>
         </thead>
         <tbody id="printers-table-body" class="divide-y divide-slate-100"></tbody>
