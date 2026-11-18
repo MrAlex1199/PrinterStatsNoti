@@ -93,13 +93,13 @@ describe('AlertEngine', () => {
     expect(sendPushMessage).toHaveBeenCalledTimes(1);
   });
 
-  it('sends paper jam alert via LINE but logs out-of-paper as web_only by default', async () => {
+  it('ignores on-site issues like out-of-paper while sending paper jam alert via LINE', async () => {
     const engine = new AlertEngine(store, { sendPushMessage });
 
-    // 1. Out of paper (noPaper) -> default rules have noPaper: false -> web_only, NO line message
+    // 1. Out of paper (noPaper) -> on-site user action -> ignored completely (0 alerts)
     const noPaperSnap: PrinterSnapshot = {
       printerId: 'p1',
-      status: PrinterStatus.Error,
+      status: PrinterStatus.Online,
       supplies: [{ name: 'Black Toner', color: '#111827', percent: 80, level: 80, maxCapacity: 100 }],
       trays: [{ name: 'Tray 1', percent: 0, level: 0, maxCapacity: 250 }],
       errorFlags: ['noPaper'],
@@ -108,11 +108,8 @@ describe('AlertEngine', () => {
     };
 
     const alertsNoPaper = await engine.evaluate(printer, noPaperSnap, 1000);
-    expect(alertsNoPaper).toHaveLength(1);
-    expect(alertsNoPaper[0].type).toBe('no_paper');
-    expect(alertsNoPaper[0].deliveryStatus).toBe('web_only');
-    expect(alertsNoPaper[0].severity).toBe('info');
-    expect(sendPushMessage).toHaveBeenCalledTimes(0); // LINE NOT called!
+    expect(alertsNoPaper).toHaveLength(0);
+    expect(sendPushMessage).toHaveBeenCalledTimes(0);
 
     // 2. Paper jam (jammed) -> critical -> sends LINE notification
     const jamSnap: PrinterSnapshot = {

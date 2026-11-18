@@ -60,7 +60,7 @@ export function decodeErrorStateBitmask(raw: Buffer | number | undefined | null)
 export function inferErrorFlagsFromLevels(
   currentFlags: PrinterErrorFlag[],
   supplies: SupplyItem[],
-  trays: PaperTrayItem[]
+  _trays: PaperTrayItem[]
 ): PrinterErrorFlag[] {
   const flags = new Set(currentFlags);
 
@@ -70,12 +70,6 @@ export function inferErrorFlagsFromLevels(
   );
   if (hasEmptySupply) {
     flags.add('noToner');
-  }
-
-  // If any paper tray is 0%, infer noPaper
-  const hasEmptyTray = trays.some((t) => t.percent !== null && t.percent <= 0);
-  if (hasEmptyTray) {
-    flags.add('noPaper');
   }
 
   return Array.from(flags);
@@ -104,39 +98,21 @@ export function inferSupplyColor(description: string): string {
 }
 
 export function resolvePrinterStatus(
-  hrDeviceStatus: number | null,
+  _hrDeviceStatus: number | null,
   hrPrinterStatus: number | null,
   errorFlags: PrinterErrorFlag[]
 ): PrinterStatus {
-  if (
-    errorFlags.includes('jammed') ||
-    errorFlags.includes('noPaper') ||
-    errorFlags.includes('noToner') ||
-    errorFlags.includes('doorOpen') ||
-    errorFlags.includes('serviceRequested') ||
-    errorFlags.includes('inputTrayMissing') ||
-    errorFlags.includes('outputTrayMissing') ||
-    errorFlags.includes('markerSupplyMissing') ||
-    errorFlags.includes('outputFull') ||
-    errorFlags.includes('inputTrayEmpty') ||
-    hrDeviceStatus === 5
-  ) {
+  if (errorFlags.includes('jammed') || errorFlags.includes('noToner')) {
     return PrinterStatus.Error;
   }
-  if (
-    errorFlags.includes('lowPaper') ||
-    errorFlags.includes('lowToner') ||
-    errorFlags.includes('outputNearFull') ||
-    errorFlags.includes('overduePreventMaint') ||
-    hrDeviceStatus === 3
-  ) {
+  if (errorFlags.includes('lowToner')) {
     return PrinterStatus.Warning;
+  }
+  if (errorFlags.includes('offline')) {
+    return PrinterStatus.Offline;
   }
   if (hrPrinterStatus === 4) {
     return PrinterStatus.Printing;
-  }
-  if (errorFlags.includes('offline') || hrDeviceStatus === 4) {
-    return PrinterStatus.Offline;
   }
   return PrinterStatus.Online;
 }

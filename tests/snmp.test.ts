@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateSupplyPercent, decodeErrorStateBitmask } from '../src/snmp/parser.js';
+import { calculateSupplyPercent, decodeErrorStateBitmask, resolvePrinterStatus } from '../src/snmp/parser.js';
 import { collectPrinterSnapshot } from '../src/snmp/collector.js';
 import { PrinterStatus } from '../src/types.js';
 
@@ -44,5 +44,19 @@ describe('SNMP Parser & Simulator', () => {
     expect(snap.printerId).toBe('sim-1');
     expect(snap.status).toBe(PrinterStatus.Warning);
     expect(snap.supplies.some((s) => s.percent !== null && s.percent <= 15)).toBe(true);
+  });
+
+  it('resolves simplified printer status omitting on-site paper/tray/service errors', () => {
+    // Paper empty or door open or service requested does NOT cause Error/Warning
+    expect(resolvePrinterStatus(5, 5, ['noPaper', 'doorOpen', 'serviceRequested'])).toBe(PrinterStatus.Online);
+    // Jammed or noToner causes Error
+    expect(resolvePrinterStatus(5, 5, ['jammed'])).toBe(PrinterStatus.Error);
+    expect(resolvePrinterStatus(5, 5, ['noToner'])).toBe(PrinterStatus.Error);
+    // Low toner causes Warning
+    expect(resolvePrinterStatus(3, 3, ['lowToner'])).toBe(PrinterStatus.Warning);
+    // Offline causes Offline
+    expect(resolvePrinterStatus(null, null, ['offline'])).toBe(PrinterStatus.Offline);
+    // Printing
+    expect(resolvePrinterStatus(2, 4, [])).toBe(PrinterStatus.Printing);
   });
 });

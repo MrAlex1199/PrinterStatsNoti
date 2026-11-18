@@ -1,5 +1,7 @@
 let currentData = null;
 let currentView = 'table';
+let currentTab = 'printers';
+let hasUserSwitchedTab = false;
 let currentKpiFilter = 'all';
 let currentGroupBy = 'brand';
 let currentSortBy = 'status';
@@ -9,14 +11,13 @@ let lastRenderedSignature = '';
 const statusBadgeMap = {
   online: { label: 'พร้อมใช้', cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   printing: { label: 'กำลังพิมพ์', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-  warning: { label: 'แจ้งเตือน', cls: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
+  warning: { label: 'หมึกใกล้หมด', cls: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
   error: { label: 'มีปัญหา', cls: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500' },
   offline: { label: 'ออฟไลน์', cls: 'bg-slate-200 text-slate-700', dot: 'bg-slate-400' },
   usb: { label: 'USB', cls: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' },
 };
 
 const errorFlagLabels = {
-  // Byte 0
   lowPaper: 'กระดาษใกล้หมด',
   noPaper: 'กระดาษหมด',
   lowToner: 'หมึกใกล้หมด',
@@ -24,8 +25,7 @@ const errorFlagLabels = {
   doorOpen: 'ฝาเครื่องเปิดอยู่',
   jammed: 'กระดาษติด',
   offline: 'ออฟไลน์ / ไม่ตอบสนอง',
-  serviceRequested: 'ต้องการซ่อมบำรุง / เรียกช่าง',
-  // Byte 1
+  serviceRequested: 'ต้องการซ่อมบำรุง',
   inputTrayMissing: 'ถาดกระดาษไม่ถูกใส่',
   outputTrayMissing: 'ถาดรับกระดาษไม่ถูกใส่',
   markerSupplyMissing: 'ตลับหมึกไม่ถูกใส่',
@@ -37,7 +37,7 @@ const errorFlagLabels = {
 
 function computeSmartStatusBadge(p) {
   if (p.connectionType === 'usb') {
-    return { label: 'USB', cls: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500', severity: 'info' };
+    return { label: 'USB', cls: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500', severity: 'normal', primaryFlag: 'usb' };
   }
   const snap = p.snapshot;
   const flags = snap?.errorFlags || [];
@@ -49,43 +49,56 @@ function computeSmartStatusBadge(p) {
   if (flags.includes('noToner')) {
     return { label: '💧 หมึกหมดเกลี้ยง', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical', primaryFlag: 'noToner' };
   }
-  if (flags.includes('serviceRequested')) {
-    return { label: '🛠️ เรียกช่างบริการ', cls: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold', dot: 'bg-rose-600', severity: 'critical', primaryFlag: 'serviceRequested' };
-  }
   if (status === 'offline' || flags.includes('offline')) {
     return { label: '🔴 ออฟไลน์', cls: 'bg-slate-200 text-slate-700', dot: 'bg-slate-400', severity: 'warning', primaryFlag: 'offline' };
   }
-  if (flags.includes('doorOpen')) {
-    return { label: '🚪 ฝาเครื่องเปิด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'doorOpen' };
-  }
-  if (flags.includes('noPaper') || flags.includes('inputTrayEmpty')) {
-    return { label: '📄 กระดาษหมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: flags.includes('noPaper') ? 'noPaper' : 'inputTrayEmpty' };
-  }
-  if (flags.includes('outputFull')) {
-    return { label: '📥 ถาดรับเต็ม', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'outputFull' };
-  }
-  if (flags.includes('inputTrayMissing') || flags.includes('outputTrayMissing') || flags.includes('markerSupplyMissing')) {
-    return { label: '⚠️ อุปกรณ์ไม่เข้าที่', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: flags.find((f) => ['inputTrayMissing', 'outputTrayMissing', 'markerSupplyMissing'].includes(f)) };
-  }
-  if (flags.includes('lowToner')) {
+  if (flags.includes('lowToner') || status === 'warning') {
     return { label: '💧 หมึกใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning', primaryFlag: 'lowToner' };
   }
-  if (flags.includes('lowPaper')) {
-    return { label: '📄 กระดาษใกล้หมด', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'warning', primaryFlag: 'lowPaper' };
-  }
-  if (flags.includes('overduePreventMaint')) {
-    return { label: '⏳ ถึงรอบตรวจเช็ค', cls: 'bg-amber-100 text-amber-800 border border-amber-300', dot: 'bg-amber-500', severity: 'info', primaryFlag: 'overduePreventMaint' };
-  }
-  if (status === 'warning') {
-    return { label: '⚠️ แจ้งเตือน', cls: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', severity: 'warning' };
-  }
-  if (status === 'error') {
-    return { label: '❌ มีปัญหา', cls: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500', severity: 'critical' };
-  }
   if (status === 'printing') {
-    return { label: 'กำลังพิมพ์', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', severity: 'normal' };
+    return { label: 'กำลังพิมพ์', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', severity: 'normal', primaryFlag: 'printing' };
   }
-  return { label: 'พร้อมใช้', cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', severity: 'normal' };
+  return { label: 'พร้อมใช้', cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', severity: 'normal', primaryFlag: 'online' };
+}
+
+function switchTab(tabName) {
+  currentTab = tabName;
+  hasUserSwitchedTab = true;
+
+  const tabBtns = {
+    issues: document.getElementById('tab-btn-issues'),
+    printers: document.getElementById('tab-btn-printers'),
+    history: document.getElementById('tab-btn-history'),
+  };
+  const tabPanels = {
+    issues: document.getElementById('tab-panel-issues'),
+    printers: document.getElementById('tab-panel-printers'),
+    history: document.getElementById('tab-panel-history'),
+  };
+
+  const activeBtnCls = ['border-indigo-600', 'text-indigo-600', 'bg-white', 'shadow-xs'];
+  const inactiveBtnCls = ['border-transparent', 'text-slate-500', 'hover:text-slate-800'];
+
+  Object.keys(tabBtns).forEach((k) => {
+    const btn = tabBtns[k];
+    const panel = tabPanels[k];
+    if (btn) {
+      if (k === tabName) {
+        btn.classList.remove(...inactiveBtnCls);
+        btn.classList.add(...activeBtnCls);
+      } else {
+        btn.classList.remove(...activeBtnCls);
+        btn.classList.add(...inactiveBtnCls);
+      }
+    }
+    if (panel) {
+      panel.classList.toggle('hidden', k !== tabName);
+    }
+  });
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
 }
 
 function detectBrand(p) {
@@ -113,6 +126,7 @@ function setKpiFilter(filter) {
     currentKpiFilter = filter;
   }
   updateKpiPillsUi();
+  switchTab('printers');
   renderPrintersList();
 }
 
@@ -231,13 +245,19 @@ function renderDashboard(data) {
 }
 
 function renderActiveIssuesPanel(data) {
-  const panel = document.getElementById('active-issues-panel');
-  const badge = document.getElementById('active-issues-badge');
+  const emptyEl = document.getElementById('active-issues-empty');
+  const containerEl = document.getElementById('active-issues-container');
   const list = document.getElementById('active-issues-list');
-  if (!panel || !badge || !list) return;
+  const badge = document.getElementById('tab-badge-issues');
+  const printersBadge = document.getElementById('tab-badge-printers');
+  const historyBadge = document.getElementById('tab-badge-history');
 
   const printers = data.printers || [];
+  const alerts = data.alerts || [];
   const rules = data.settings?.lineNotifyRules || {};
+
+  if (printersBadge) printersBadge.textContent = printers.length;
+  if (historyBadge) historyBadge.textContent = alerts.length;
 
   const issueItems = [];
   for (const p of printers) {
@@ -248,7 +268,7 @@ function renderActiveIssuesPanel(data) {
     const status = snap.status;
     const b = computeSmartStatusBadge(p);
 
-    if (b.severity === 'critical' || b.severity === 'warning' || (b.severity === 'info' && flags.length > 0)) {
+    if (b.severity === 'critical' || b.severity === 'warning') {
       let lineActive = false;
       let reasonText = '';
 
@@ -258,23 +278,12 @@ function renderActiveIssuesPanel(data) {
       } else if (flags.includes('noToner')) {
         lineActive = rules.noToner !== false;
         reasonText = 'ตลับหมึกหมดเกลี้ยง (0%)';
-      } else if (flags.includes('serviceRequested')) {
-        lineActive = rules.hardwareError !== false;
-        reasonText = 'ฮาร์ดแวร์ขัดข้อง ต้องการเรียกช่างซ่อม';
-      } else if (status === 'offline') {
+      } else if (status === 'offline' || flags.includes('offline')) {
         lineActive = rules.offline !== false;
         reasonText = 'เครื่องออฟไลน์ ไม่ตอบสนองเครือข่าย';
-      } else if (flags.includes('noPaper') || flags.includes('inputTrayEmpty')) {
-        lineActive = Boolean(rules.noPaper);
-        reasonText = 'กระดาษหมด / ถาดกระดาษว่างเปล่า';
-      } else if (flags.includes('doorOpen')) {
-        lineActive = Boolean(rules.doorOrTray);
-        reasonText = 'ฝาครอบตัวเครื่องเปิดอยู่';
-      } else if (flags.includes('lowToner')) {
+      } else if (flags.includes('lowToner') || status === 'warning') {
         lineActive = rules.lowInk !== false;
         reasonText = 'หมึกพิมพ์ใกล้หมด';
-      } else {
-        reasonText = flags.map((f) => errorFlagLabels[f] || f).join(', ') || 'พบข้อความแจ้งเตือน';
       }
 
       const alertMsg = snap.alertMessages?.length ? snap.alertMessages[0] : '';
@@ -291,51 +300,63 @@ function renderActiveIssuesPanel(data) {
 
   issueItems.sort((a, b) => getPrinterStatusRank(a.printer) - getPrinterStatusRank(b.printer));
 
-  if (issueItems.length === 0) {
-    panel.classList.add('hidden');
-    return;
+  if (badge) {
+    badge.textContent = issueItems.length;
+    if (issueItems.length > 0) {
+      badge.className = 'px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700';
+    } else {
+      badge.className = 'px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500';
+    }
   }
 
-  panel.classList.remove('hidden');
-  badge.textContent = `${issueItems.length} เครื่อง`;
+  if (issueItems.length === 0) {
+    if (emptyEl) emptyEl.classList.remove('hidden');
+    if (containerEl) containerEl.classList.add('hidden');
+  } else {
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (containerEl) containerEl.classList.remove('hidden');
 
-  list.innerHTML = issueItems
-    .map((item) => {
-      const p = item.printer;
-      const b = item.badgeInfo;
-      const isCritical = b.severity === 'critical';
-      const rowBg = isCritical ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'bg-white hover:bg-amber-50/50';
-      const lineTag = item.lineActive
-        ? '<span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-semibold whitespace-nowrap"><i data-lucide="check" class="w-3 h-3"></i>ส่ง LINE</span>'
-        : '<span class="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium whitespace-nowrap" title="แสดงเฉพาะบนเว็บ ไม่รบกวนส่ง LINE">เฉพาะบนเว็บ</span>';
+    if (list) {
+      list.innerHTML = issueItems
+        .map((item) => {
+          const p = item.printer;
+          const b = item.badgeInfo;
+          const isCritical = b.severity === 'critical';
+          const rowBg = isCritical ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'bg-white hover:bg-amber-50/50';
+          const lineTag = item.lineActive
+            ? '<span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-semibold whitespace-nowrap"><i data-lucide="check" class="w-3 h-3"></i>ส่ง LINE</span>'
+            : '<span class="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium whitespace-nowrap">เฉพาะบนเว็บ</span>';
 
-      return `
-        <div onclick="openDetailModal('${p.id}')" class="px-3.5 py-2 ${rowBg} flex flex-wrap items-center justify-between gap-2 cursor-pointer transition">
-          <div class="flex flex-wrap items-center gap-2 min-w-0">
-            <span class="w-2 h-2 rounded-full ${b.dot} shrink-0"></span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 whitespace-nowrap ${b.cls}">${b.label}</span>
-            <span class="font-bold text-xs text-slate-900 truncate max-w-[260px]" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-            <span class="text-[11px] font-mono text-slate-400 whitespace-nowrap">${escapeHtml(p.ip)}</span>
-            <span class="text-[11px] text-slate-600 hidden sm:inline">• ${escapeHtml(item.reasonText)}</span>
-            ${item.alertMsg ? `<span class="text-[10px] text-amber-800 font-mono bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 truncate max-w-[220px]">${escapeHtml(item.alertMsg)}</span>` : ''}
-          </div>
-          <div class="flex items-center gap-2 shrink-0 ml-auto">
-            ${lineTag}
-            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
-          </div>
-        </div>
-      `;
-    })
-    .join('');
-}
+          return `
+            <div onclick="openDetailModal('${p.id}')" class="px-3.5 py-2.5 ${rowBg} flex flex-wrap items-center justify-between gap-2 cursor-pointer transition">
+              <div class="flex flex-wrap items-center gap-2 min-w-0">
+                <span class="w-2 h-2 rounded-full ${b.dot} shrink-0"></span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 whitespace-nowrap ${b.cls}">${b.label}</span>
+                <span class="font-bold text-xs text-slate-900 truncate max-w-[260px]" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+                <span class="text-[11px] font-mono text-slate-400 whitespace-nowrap">${escapeHtml(p.ip)}</span>
+                <span class="text-[11px] text-slate-600 hidden sm:inline">• ${escapeHtml(item.reasonText)}</span>
+                ${item.alertMsg ? `<span class="text-[10px] text-amber-800 font-mono bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 truncate max-w-[220px]">${escapeHtml(item.alertMsg)}</span>` : ''}
+              </div>
+              <div class="flex items-center gap-2 shrink-0 ml-auto">
+                ${lineTag}
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+  }
 
-let activeIssuesCollapsed = false;
-function toggleActiveIssuesPanel() {
-  activeIssuesCollapsed = !activeIssuesCollapsed;
-  const list = document.getElementById('active-issues-list');
-  const label = document.getElementById('toggle-issues-label');
-  if (list) list.classList.toggle('hidden', activeIssuesCollapsed);
-  if (label) label.textContent = activeIssuesCollapsed ? 'แสดงรายการ' : 'ซ่อน';
+  // Auto-switch to issues tab on initial load if issues exist
+  if (!hasUserSwitchedTab) {
+    if (issueItems.length > 0) {
+      switchTab('issues');
+    } else {
+      switchTab('printers');
+    }
+    hasUserSwitchedTab = false; // keep state so user can toggle tabs freely
+  }
 }
 
 function getPrinterStatusRank(p) {
@@ -344,17 +365,10 @@ function getPrinterStatusRank(p) {
   const status = p.snapshot?.status || 'offline';
   if (flags.includes('jammed')) return 1;
   if (flags.includes('noToner')) return 2;
-  if (flags.includes('serviceRequested')) return 3;
-  if (status === 'offline' || flags.includes('offline')) return 4;
-  if (flags.includes('doorOpen')) return 5;
-  if (flags.includes('outputFull') || flags.includes('inputTrayMissing')) return 6;
-  if (flags.includes('noPaper') || flags.includes('inputTrayEmpty')) return 7;
-  if (flags.includes('lowToner')) return 8;
-  if (flags.includes('lowPaper') || flags.includes('overduePreventMaint')) return 9;
-  if (status === 'warning') return 10;
-  if (status === 'error') return 11;
-  if (status === 'printing') return 20;
-  if (status === 'online') return 30;
+  if (status === 'offline' || flags.includes('offline')) return 3;
+  if (flags.includes('lowToner') || status === 'warning') return 4;
+  if (status === 'printing') return 5;
+  if (status === 'online') return 6;
   return 99;
 }
 
@@ -653,7 +667,8 @@ function renderCompactCard(p, animIndex = -1) {
     inkStripHtml = `<div class="text-[11px] text-slate-400">ไม่มีข้อมูลหมึก</div>`;
   }
 
-  const secondaryCardFlags = (snap?.errorFlags || []).filter((f) => f !== badge.primaryFlag);
+  const relevantFlags = ['jammed', 'noToner', 'lowToner', 'offline'];
+  const secondaryCardFlags = (snap?.errorFlags || []).filter((f) => relevantFlags.includes(f) && f !== badge.primaryFlag);
   const flagsHtml =
     secondaryCardFlags.length > 0
       ? `<div class="flex flex-wrap gap-1">${secondaryCardFlags
@@ -748,8 +763,9 @@ function renderPrinterRow(p) {
   const brand = detectBrand(p);
   const showLocation = a.location && a.location.trim() !== p.name.trim();
 
-  // Only show secondary error flags that differ from the primary smart badge
-  const secondaryFlags = (snap?.errorFlags || []).filter((f) => f !== badge.primaryFlag);
+  // Only show secondary error flags that are actionable and differ from primary badge
+  const relevantFlags = ['jammed', 'noToner', 'lowToner', 'offline'];
+  const secondaryFlags = (snap?.errorFlags || []).filter((f) => relevantFlags.includes(f) && f !== badge.primaryFlag);
   const flagsHtml =
     secondaryFlags.length > 0
       ? `<div class="mt-1 flex flex-wrap gap-1">${secondaryFlags
@@ -847,8 +863,6 @@ function openDetailModal(id) {
          <select onchange="changeScenario('${p.id}', this.value)" class="text-xs border border-indigo-200 rounded px-2 py-1 bg-white">
            <option value="normal" ${p.simulatorScenario === 'normal' ? 'selected' : ''}>ปกติ (Normal)</option>
            <option value="paper_jam" ${p.simulatorScenario === 'paper_jam' ? 'selected' : ''}>กระดาษติด (ส่ง LINE)</option>
-           <option value="no_paper" ${p.simulatorScenario === 'no_paper' ? 'selected' : ''}>กระดาษหมด (เฉพาะบนเว็บ)</option>
-           <option value="door_open" ${p.simulatorScenario === 'door_open' ? 'selected' : ''}>ฝาเครื่องเปิด (เฉพาะบนเว็บ)</option>
            <option value="low_ink" ${p.simulatorScenario === 'low_ink' ? 'selected' : ''}>หมึกใกล้หมด (ส่ง LINE)</option>
            <option value="offline" ${p.simulatorScenario === 'offline' ? 'selected' : ''}>ออฟไลน์ (ส่ง LINE)</option>
          </select>
@@ -998,12 +1012,9 @@ async function openSettingsModal() {
   };
   setCheck('rule-paper-jam', rules.paperJam !== false);
   setCheck('rule-no-toner', rules.noToner !== false);
-  setCheck('rule-hardware-error', rules.hardwareError !== false);
   setCheck('rule-low-ink', rules.lowInk !== false);
   setCheck('rule-offline', rules.offline !== false);
   setCheck('rule-contract', rules.contractExpiring !== false);
-  setCheck('rule-no-paper', rules.noPaper === true);
-  setCheck('rule-door-tray', rules.doorOrTray === true);
 
   // Load Windows Startup status
   try {
@@ -1089,12 +1100,9 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
     lineNotifyRules: {
       paperJam: getCheck('rule-paper-jam'),
       noToner: getCheck('rule-no-toner'),
-      hardwareError: getCheck('rule-hardware-error'),
       lowInk: getCheck('rule-low-ink'),
       offline: getCheck('rule-offline'),
       contractExpiring: getCheck('rule-contract'),
-      noPaper: getCheck('rule-no-paper'),
-      doorOrTray: getCheck('rule-door-tray'),
     },
   };
   await fetch('/api/settings', {

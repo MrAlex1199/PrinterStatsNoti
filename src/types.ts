@@ -27,9 +27,7 @@ export type SimulatorScenario =
   | 'normal'
   | 'low_ink'
   | 'paper_jam'
-  | 'offline'
-  | 'no_paper'
-  | 'door_open';
+  | 'offline';
 
 export interface PrinterAssetInfo {
   location?: string;
@@ -95,11 +93,7 @@ export interface AlertRecord {
     | 'low_ink'
     | 'no_toner'
     | 'paper_jam'
-    | 'no_paper'
     | 'offline'
-    | 'hardware_error'
-    | 'door_open'
-    | 'tray_problem'
     | 'contract_expiring'
     | 'daily_summary'
     | 'test';
@@ -121,23 +115,17 @@ export interface DailyPrinterStat {
 export interface LineNotifyRules {
   paperJam: boolean;        // Critical: กระดาษติด (ค่าเริ่มต้น: true)
   noToner: boolean;         // Critical: หมึกหมดเกลี้ยง (ค่าเริ่มต้น: true)
-  hardwareError: boolean;   // Critical: ฮาร์ดแวร์เสีย/เรียกช่าง (ค่าเริ่มต้น: true)
   lowInk: boolean;          // Warning: หมึกใกล้หมด (ค่าเริ่มต้น: true)
   offline: boolean;         // Warning: เครื่องออฟไลน์ (ค่าเริ่มต้น: true)
   contractExpiring: boolean;// Warning: สัญญาใกล้หมด (ค่าเริ่มต้น: true)
-  noPaper: boolean;         // Info: กระดาษหมด (ค่าเริ่มต้น: false -> แจ้งบนเว็บเท่านั้น)
-  doorOrTray: boolean;      // Info: ฝาเปิด/ถาดกระดาษเปิด (ค่าเริ่มต้น: false -> แจ้งบนเว็บเท่านั้น)
 }
 
 export const DEFAULT_LINE_NOTIFY_RULES: LineNotifyRules = {
   paperJam: true,
   noToner: true,
-  hardwareError: true,
   lowInk: true,
   offline: true,
   contractExpiring: true,
-  noPaper: false,
-  doorOrTray: false,
 };
 
 export interface AppSettings {
